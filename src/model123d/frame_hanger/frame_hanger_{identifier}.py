@@ -48,17 +48,18 @@ def define(object, color="#ff0000", name=""):
 class Parameters:
     """Parameters for the ${TM_FILENAME}"""
     show_debug: bool       = yes
-    show_selection: bool   = yes
+    show_selection: bool   = no
     show_nose:  bool       = no
     do_fillet: bool         = yes
     do_export:  bool       = yes
     # Device dimensions
-    base_height: float       = 5.0 * mm
+    base_height: float       = 8.0 * mm
     base_diameter: float     = 12.5 * mm
     base_width: float        = 130.0 * mm
     nose_length: float       = 10.0 - 5.0/2 * mm
     nose_width: float        = 5.0 * mm
     nose_height: float       = 2.5 * mm
+    hole_diameter: float     = 2.0 * mm
     nose_angle: float        = -5
 P = Parameters()
 
@@ -86,17 +87,17 @@ if __name__ == "__main__":
             Rectangle(P.base_diameter, P.base_width, align=(Align.CENTER, Align.MIN, Align.CENTER))
             with Locations((0, 0, 0), (0, P.base_width, 0)):
                 Circle(P.base_diameter/2)
-                Circle(2. * mm,  mode=Mode.SUBTRACT)
+                Circle(P.hole_diameter,  mode=Mode.SUBTRACT)
             with Locations((0, P.base_width/4, 0), (0, P.base_width/4*3, P.base_height)):
-                Circle(2. * mm,  mode=Mode.SUBTRACT)
+                Circle(P.hole_diameter,  mode=Mode.SUBTRACT)
             with Locations((0, P.base_width/8, 0), (0, P.base_width/8*7, P.base_height)):    
-                Rectangle(2*2., P.base_width/4, mode=Mode.SUBTRACT)
+                Rectangle(2*P.hole_diameter, P.base_width/4, mode=Mode.SUBTRACT)
                 
                 
         extrude(amount=P.base_height, mode=Mode.ADD)
         
         with Locations((0, 0, 0), (0, P.base_width, 0)):
-            add(nose.part.locate(Location((2*2.,0,P.base_height*0.25))).rotate(Axis.Y, P.nose_angle))
+            add(nose.part.locate(Location((2*P.hole_diameter,0,P.base_height*0.5))).rotate(Axis.Y, P.nose_angle))
         
         #TODO: add hole in the base
         
@@ -117,7 +118,7 @@ if __name__ == "__main__":
     # Export the box if do_export is True
     if P.do_export:
         debug("Exporting model")
-        id = f'{P.base_diameter}x{P.base_height}mm_{P.nose_length}x{P.nose_width}x{P.nose_height}mm'
+        id = f'{P.base_width}x{P.base_height}mm'
 
         export_name = __file__ \
                         .replace('{identifier}', id) \
