@@ -2,8 +2,8 @@
 ----
 file-name:      frame_hanger_{identifier}.py
 file-uuid:      fcaa3aba-387b-4a4e-93d4-b59b03243459
-description:    {{description}}
-
+description:    A frame hanger for a special image frame.
+author:         felix@42sol
 project:
     name:       model123d
     uuid:       fe521ba0-4ad7-484d-9386-26de71379e15
@@ -55,9 +55,11 @@ class Parameters:
     # Device dimensions
     base_height: float       = 5.0 * mm
     base_diameter: float     = 12.5 * mm
-    nose_length: float       = 12.0 + 12.5/2 - 5.0/2 * mm
+    base_width: float        = 130.0 * mm
+    nose_length: float       = 10.0 - 5.0/2 * mm
     nose_width: float        = 5.0 * mm
     nose_height: float       = 2.5 * mm
+    nose_angle: float        = -5
 P = Parameters()
 
 # [Main]    
@@ -74,38 +76,39 @@ if __name__ == "__main__":
                 Circle(P.nose_width/2)
         
         extrude(amount=P.nose_height, mode=Mode.ADD)
+        fillet(nose.edges(), 1.2 * mm)
         
     if P.show_nose:
         define(nose, "#00ff00ff", "nose")
     
     with BuildPart() as base:
         with BuildSketch(Plane.XY) as bottom_sketch:
-            Circle(P.base_diameter/2)
+            Rectangle(P.base_diameter, P.base_width, align=(Align.CENTER, Align.MIN, Align.CENTER))
+            with Locations((0, 0, 0), (0, P.base_width, 0)):
+                Circle(P.base_diameter/2)
+                Circle(2. * mm,  mode=Mode.SUBTRACT)
+            with Locations((0, P.base_width/4, 0), (0, P.base_width/4*3, P.base_height)):
+                Circle(2. * mm,  mode=Mode.SUBTRACT)
+            with Locations((0, P.base_width/8, 0), (0, P.base_width/8*7, P.base_height)):    
+                Rectangle(2*2., P.base_width/4, mode=Mode.SUBTRACT)
+                
+                
         extrude(amount=P.base_height, mode=Mode.ADD)
         
-        add(nose.part.rotate(Axis.Y, 180-15).rotate(Axis.X, 180).rotate(Axis.Z, 50))
+        with Locations((0, 0, 0), (0, P.base_width, 0)):
+            add(nose.part.locate(Location((2*2.,0,P.base_height*0.25))).rotate(Axis.Y, P.nose_angle))
         
         #TODO: add hole in the base
         
         edges = base.edges().filter_by(lambda e: e)
+        for index in range(len(edges)):
+            if P.show_selection:
+                define(edges[index], "#ff0000ff", f"edges_{index}")
         if P.do_fillet:
-            define(edges[2], "#00c9ccff", f"edges_fillet_1") 
-            fillet(edges[2],.6)
-            define(edges[8], "#00c9ccff", f"edges_fillet_2") 
-            fillet(edges[8],1.)
-            define(edges[11], "#00c9ccff", f"edges_fillet_3") 
-            fillet(edges[11],1.)
-        
-        Cylinder(radius=2. * mm, height=P.base_height + 5 * mm, mode=Mode.SUBTRACT)
-        
-        edges = base.edges().filter_by(lambda e: e)
-        if P.do_fillet:
-            define(edges[36], "#00cc00ff", f"edges_chamfer_1") 
-            chamfer(edges[36], 2. * mm)
-            
-            
-            
-        
+            fillet(edges[3],.6)
+            chamfer(edges[32],2.)
+            chamfer(edges[36],2.)
+
     define(base, "#0000aaff", "base")
 
     # Show the box
