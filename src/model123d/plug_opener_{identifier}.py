@@ -1,8 +1,8 @@
 """
 ----
-file-name:      frame_hanger_{identifier}.py
-file-uuid:      fcaa3aba-387b-4a4e-93d4-b59b03243459
-description:    {{description}}
+file-name:      plug_opener_{identifier}.py
+file-uuid:      6f61bd14-e792-4294-909b-f624ac9334cd
+description:   hanger plug opener
 
 project:
     name:       model123d
@@ -53,12 +53,28 @@ class Parameters:
     do_fillet: bool         = yes
     do_export:  bool       = yes
     # Device dimensions
-    base_height: float       = 5.0 * mm
-    base_diameter: float     = 12.5 * mm
-    nose_length: float       = 12.0 + 12.5/2 - 5.0/2 * mm
+    base_height: float       = 15.0 * mm
+    base_diameter: float     = 30.0 * mm
+    tool_grip: float         = 10.0 * mm
+    grip_length: float       = 50.0 * mm
+    base_thickness: float    = 2.0 * mm
+    nose_length: float       = 30.0 * mm
+    cut_length: float        = 15.0 * mm
     nose_width: float        = 5.0 * mm
-    nose_height: float       = 2.5 * mm
+    nose_height: float       = 15.0 * mm
 P = Parameters()
+
+
+def do_fillet(index, edge, radius):
+    """Apply a fillet to the edges of an object"""
+    define(edge, "#00c9ccff", f"edgeP{index}_{edge.length:.2f}mm") 
+    fillet(edge, radius)
+
+def do_chamfer(index, edge, radius):
+    """Apply a fillet to the edges of an object"""
+    define(edge, "#00c9ccff", f"edgeP{index}_{edge.length:.2f}mm") 
+    chamfer(edge, radius)
+        
 
 # [Main]    
 if __name__ == "__main__":
@@ -66,55 +82,42 @@ if __name__ == "__main__":
     
     # [Model]
     debug("Creating model") 
-    with BuildPart() as nose:
-        with BuildSketch(Plane.XY) as bottom_sketch:
-            Rectangle(P.nose_length, P.nose_width, mode=Mode.ADD,
-                align=(Align.MIN, Align.CENTER, Align.MIN))
-            with Locations((P.nose_length, 0, 0)):
-                Circle(P.nose_width/2)
-        
-        extrude(amount=P.nose_height, mode=Mode.ADD)
-        
+    with BuildPart(Plane.XY.offset(P.tool_grip-P.nose_height)) as nose:
+        Box(length=P.nose_length, width=P.nose_width, height=P.nose_height,
+            align=(Align.MIN, Align.CENTER, Align.CENTER),
+            mode=Mode.ADD)
     if P.show_nose:
         define(nose, "#00ff00ff", "nose")
-    
+        
+            
     with BuildPart() as base:
-        with BuildSketch(Plane.XY) as bottom_sketch:
-            Circle(P.base_diameter/2)
-        extrude(amount=P.base_height, mode=Mode.ADD)
+        Cylinder(radius=P.base_diameter/2, height=P.base_height, mode=Mode.ADD)
+        Cylinder(radius=P.base_diameter/2-P.base_thickness, height=P.nose_height, mode=Mode.SUBTRACT,)
         
-        add(nose.part.rotate(Axis.Y, 180-15).rotate(Axis.X, 180).rotate(Axis.Z, 50))
-        
-        #TODO: add hole in the base
-        
+        with BuildSketch(Plane.XY.offset(P.base_height/2-P.tool_grip/2)) as bottom_sketch:
+            RectangleRounded(P.grip_length, P.base_diameter-P.base_thickness, 2*P.base_thickness)
+        extrude(amount=P.tool_grip/2)
+        add(nose.part.rotate(Axis.Z, 90), mode=Mode.SUBTRACT)
+
         edges = base.edges().filter_by(lambda e: e)
         if P.do_fillet:
-            define(edges[2], "#00c9ccff", f"edges_fillet_1") 
-            fillet(edges[2],.6)
-            define(edges[8], "#00c9ccff", f"edges_fillet_2") 
-            fillet(edges[8],1.)
-            define(edges[11], "#00c9ccff", f"edges_fillet_3") 
-            fillet(edges[11],1.)
-        
-        Cylinder(radius=2. * mm, height=P.base_height + 5 * mm, mode=Mode.SUBTRACT)
-        
-        edges = base.edges().filter_by(lambda e: e)
-        if P.do_fillet:
-            define(edges[36], "#00cc00ff", f"edges_chamfer_1") 
-            chamfer(edges[36], 2. * mm)
+            do_fillet(12, edges[12], 0.2)
+            do_fillet(39, edges[39], 0.2)
+            do_fillet(28, edges[28], 0.4)
+            do_fillet(46, edges[46], 0.4)
             
             
-            
-        
-    define(base, "#0000aaff", "base")
+
+    define(base, "#0000aaff", "tool")
 
     # Show the box
+    
     show(*objects)
     
     # Export the box if do_export is True
     if P.do_export:
         debug("Exporting model")
-        id = f'{P.base_diameter}x{P.base_height}mm_{P.nose_length}x{P.nose_width}x{P.nose_height}mm'
+        id = f'{P.base_diameter}x{P.base_height}mm'
 
         export_name = __file__ \
                         .replace('{identifier}', id) \
@@ -122,6 +125,6 @@ if __name__ == "__main__":
         export_path = Path(__file__).parent / export_name
         console.log(f"[green]Model exported to {export_path}[/green]")
         exporter = Mesher()
-        exporter.add_shape(base.part)
+        exporter.add_shape(base.part.rotate(Axis.Y, 180))
         exporter.write(export_path)
         del exporter        
