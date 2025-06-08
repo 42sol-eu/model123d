@@ -167,6 +167,7 @@ def do_camera(x, y, z, diameter, frame, height, name="camera"):
     define (inner, "#282877ff", f'{name}_inner')
     define (frame,  "#bbbdbbff", f'{name}_frame')
     define (lense,  "#f4f44b2c", f'{name}_lens')
+    return frame
 
 def do_led(x, y, z, diameter, name="led"):
     with BuildPart(Plane.XY.offset(z+0.01)) as outer:
@@ -300,10 +301,10 @@ if __name__ == "__main__":
     P.camera2_extrude = 2.0
     P.camera3_extrude = 2.0
     
-    do_camera(P.camera1_x, P.camera1_y+P.camera1_h/4, P.body_extrude, P.camera1_r*2-0.1, P.camera1_frame, P.camera1_extrude,      'camera1')
+    camera1_frame = do_camera(P.camera1_x, P.camera1_y+P.camera1_h/4, P.body_extrude, P.camera1_r*2-0.1, P.camera1_frame, P.camera1_extrude,      'camera1')
     do_led(P.camera1_x, P.camera1_y-P.camera1_h/4, P.body_extrude, P.camera1_r*0.6, 'led')
-    do_camera(P.camera2_x, P.camera2_y, P.body_extrude, P.camera3_diameter-0.1, P.camera2_frame, P.camera2_extrude, 'camera2')
-    do_camera(P.camera3_x, P.camera3_y, P.body_extrude, P.camera3_diameter-0.1, P.camera3_frame, P.camera3_extrude, 'camera3')
+    camera2_frame = do_camera(P.camera2_x, P.camera2_y, P.body_extrude, P.camera3_diameter-0.1, P.camera2_frame, P.camera2_extrude, 'camera2')
+    camera3_frame = do_camera(P.camera3_x, P.camera3_y, P.body_extrude, P.camera3_diameter-0.1, P.camera3_frame, P.camera3_extrude, 'camera3')
                     
 
 
@@ -411,4 +412,24 @@ if __name__ == "__main__":
         exporter.add_shape(phone.part)
         exporter.add_shape(backplate.part)
         exporter.write(export_path)
+        
+        exporter = Mesher()
+        exporter.add_shape(display.part)
+        exporter.write(export_path.with_name(export_path.stem + "_display.stl"))
+        
+        exporter = Mesher()
+        exporter.add_shape(phone.part)
+        exporter.write(export_path.with_name(export_path.stem + "_phone.stl"))
+        
+        exporter = Mesher()
+        exporter.add_shape(backplate.part)
+        exporter.write(export_path.with_name(export_path.stem + "_backplate.stl"))
+
+        exporter = Mesher()
+        exporter.add_shape(camera1_frame.part)
+        exporter.add_shape(camera2_frame.part)
+        exporter.add_shape(camera3_frame.part)
+        exporter.add_shape(charger.part)
+        exporter.write(export_path.with_name(export_path.stem + "_addons.stl"))
+        
         del exporter        
