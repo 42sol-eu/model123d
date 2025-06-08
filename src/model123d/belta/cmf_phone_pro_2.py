@@ -13,7 +13,7 @@ project:
 # [Imports]
 from build123d import *
 from build123d import MM as mm
-from ocp_vscode import show, set_defaults, Camera
+from ocp_vscode import show, show_object, set_defaults, Camera
 from dataclasses import dataclass
 from pathlib import Path
 import sys
@@ -23,7 +23,6 @@ from copy import deepcopy as copy
 
 # [Setup]
 console = Console()
-objects = []
 
 # [Constants]
 no = False
@@ -37,19 +36,35 @@ def debug(msg):
     if Parameters.show_debug:
         console.log(f"[blue]DEBUG: {msg}[/blue]")
 
-def define(object, color="#ff0000", name=""):
+
+def create_name(base_path, suffix, extension="stl"):
+        return base_path.with_name(f"{base_path.stem}_{suffix}.{extension}")
+
+def export_parts_to_stl(file_path, parts):
+    if type(file_path) is list or type(file_path) is tuple:
+        base_path = file_path[0]
+        suffix = '_'.join(file_path[1:])
+        file_path = create_name(base_path, suffix, "stl")
+        print(f"Exporting to {file_path}")
+        
+    exporter = Mesher()
+    for part in parts:
+        exporter.add_shape(part.part)
+    exporter.write(file_path)
+    del exporter
+
+def define(object, color=None, name="", alpha=1.0):
     """Define an object with a name and color"""
-    if len(name) == 0:
-        if hasattr(object, '__name__'):
-            name = object.__name__
-        else:
-            name = [k for k, v in globals().items() if v is object and not k.startswith("__")]
-            name = name[0] if name else "unnamed"
+    if hasattr(object, 'part'):
+        # If the object has a part, use that
+        object.part.name = name
+        object.color = color
+        object.alpha = alpha
     else:
         object.name = name
-    object.color = color
-    objects.append(object)
-    return object
+        object.color = color
+        object.alpha = alpha
+
 
 # [Parameters]
 @dataclass
@@ -62,7 +77,7 @@ class Parameters:
     do_screws: bool          = yes
     do_charger: bool         = yes
     do_post_processing: bool = no
-    do_export: bool          = yes
+    do_export: bool          = no
     
     # Device dimensions
     body_height: float            = 164.0 * mm # TODO: fix height
@@ -76,10 +91,10 @@ class Parameters:
     # Screw dimensions
     screw_diameter: float         =   2.20 * mm
     screw_head_diameter: float   =    5.85 * mm
-    screw_y1: float               =  18.1 + 98.43 * mm
-    screw_x1: float               =   3.9 * mm
-    screw_y2: float               =  18.1 * mm
+    screw_y2: float               =  18.1 + 98.43 * mm
     screw_x2: float               =   3.9 * mm
+    screw_y1: float               =  18.1 * mm
+    screw_x1: float               =   3.9 * mm
     screw_y3: float               =  18.1 + 98.43 * mm
     screw_x3: float               =  78.0 - 3.9 * mm
     screw_y4: float               =  18.1 + 43.58 + 98.43 * mm
@@ -98,41 +113,47 @@ class Parameters:
     charger_outer_diameter: float =  54. * mm
     
     # Camera dimensions
-    camera1_x: float         =  3.9 + 23.96 * mm
-    camera1_y: float         =  143.0 * mm
-    camera1_w: float         =  10.6 * mm
-    camera1_h: float         =  22.0 * mm
-    camera1_r: float         =   5.0 * mm
+    camera1_x: float          =  3.9 + 23.96 * mm
+    camera1_y: float          =  143.0 * mm
+    camera1_w: float          =  10.6 * mm
+    camera1_h: float          =  22.0 * mm
+    camera1_r: float          =   5.0 * mm
+    camera1_frame: float = 1.0
+    camera1_extrude: float = 1.0
+    
+    camera2_x: float          =  11. * mm
+    camera2_y: float          =  152.5 * mm
+    camera2_diameter: float   =  19. * mm
+    camera2_frame: float = 5.0
+    camera2_extrude: float = 2.0
 
-    camera2_x: float         =  11. * mm
-    camera2_y: float         =  152.5 * mm
-    camera2_diameter: float  =  19. * mm
-
-    camera3_x: float         =  11. * mm
-    camera3_y: float         =  153.5 - 22. * mm
-    camera3_diameter: float  =  19. * mm
-
-    cameraF_x: float         =  11. * mm
-    cameraF_y: float         =  142.5 * mm
-    cameraF_w: float         =  20. * mm
-    cameraF_h: float         =  22. + 19. * mm
-    cameraF_r: float         =   9.5 * mm
+    camera3_x: float          =  11. * mm
+    camera3_y: float          =  153.5 - 22. * mm
+    camera3_diameter: float   =  19. * mm
+    camera3_frame: float = 5.0
+    camera3_extrude: float = 2.0
+    
+    cameraF_x: float          =  11. * mm
+    cameraF_y: float          =  142.5 * mm
+    cameraF_w: float          =  20. * mm
+    cameraF_h: float          =  22. + 19. * mm
+    cameraF_r: float          =   9.5 * mm
     
     # Plugs dimensions
-    usbc_width: float         =   8.4 * mm
-    usbc_height: float        =   2.6 * mm
+    usbc_width: float         =  0.1 + 8.4 * mm
+    usbc_height: float        =  0.1 + 2.6 * mm
+    usbc_extrude: float       =   8.0 * mm
     usbc_radius: float        =   1.25 * mm
     usbc_inside_width: float  =   6.65 * mm
     usbc_inside_height: float =   1.6 * mm
 
+objects = []
 
 
 P = Parameters()
 set_defaults(reset_camera=Camera.KEEP,)
 
-
 # [Helper models]
-
 def do_camera(x, y, z, diameter, frame, height, name="camera"):
     """Create a camera with a frame"""
     outer_radius = diameter / 2
@@ -166,8 +187,11 @@ def do_camera(x, y, z, diameter, frame, height, name="camera"):
     define (outer, "#444343bb", f'{name}_outer')
     define (inner, "#282877ff", f'{name}_inner')
     define (frame,  "#bbbdbbff", f'{name}_frame')
-    define (lense,  "#f4f44b2c", f'{name}_lens')
-    return frame
+    define (lense,  "#f4f44b2c", f'{name}_lens', alpha=0.2)
+    
+    compound = Compound([frame.part, bottom.part, outer.part, inner.part, lense.part], label=name)
+    define(compound, name=f'{name}')
+    return compound, frame, bottom, outer, inner, lense, bottom
 
 def do_led(x, y, z, diameter, name="led"):
     with BuildPart(Plane.XY.offset(z+0.01)) as outer:
@@ -178,8 +202,11 @@ def do_led(x, y, z, diameter, name="led"):
         with Locations((x, y)):
             Cylinder(diameter*0.5, 0.01, mode=Mode.ADD)
 
-    define (outer,  "#bbbdbbff", f'{name}_outer')
-    define (inner,  "#f4f44b2c", f'{name}_inner')
+    define(outer,  "#bbbdbbff", f'{name}_outer')
+    define(inner,  "#f4f44b2c", f'{name}_inner')
+    led = Compound([outer.part, inner.part], label=name)
+    define(led, "#f4f44b2c", f'{name}_led')
+    return led, outer, inner
 
 def do_screw(x, y, z, diameter, name="screw"):
     """Create a screw with a head"""
@@ -276,10 +303,12 @@ if __name__ == "__main__":
         with BuildSketch(bottom_face) as bottom_sketch:
             # Define the sketch on the bottom face
             RectangleRounded(P.usbc_width, P.usbc_height, P.usbc_radius)
-            RectangleRounded(   P.usbc_inside_width, P.usbc_inside_height, 
-                                P.usbc_inside_height/4, mode=Mode.SUBTRACT)
             
-        extrude(amount=-P.usbc_height, mode=Mode.SUBTRACT)
+            if 0: # Do not make the inside part
+                RectangleRounded(   P.usbc_inside_width, P.usbc_inside_height, 
+                                    P.usbc_inside_height/4, mode=Mode.SUBTRACT)
+            
+        extrude(amount=-P.usbc_extrude, mode=Mode.SUBTRACT)
         add(display_cutout.part, mode=Mode.SUBTRACT)
         edges = phone.edges().filter_by(lambda e: e)
         for index in range(len(edges)):
@@ -291,20 +320,15 @@ if __name__ == "__main__":
             # chamfer(edges[32],2.)
             # chamfer(edges[36],2.)
 
-    define(phone,   "#ccccd3ff", "phone")
-    define(display, "#000000ff", "display")
+    define(phone,   "#ccccd3ff", "phone.body")
+    define(display, "#000000ff", "phone.display")
 
-    P.camera1_frame = 1.0
-    P.camera2_frame = 5.0
-    P.camera3_frame = 5.0
-    P.camera1_extrude = 1.0
-    P.camera2_extrude = 2.0
-    P.camera3_extrude = 2.0
+
     
-    camera1_frame = do_camera(P.camera1_x, P.camera1_y+P.camera1_h/4, P.body_extrude, P.camera1_r*2-0.1, P.camera1_frame, P.camera1_extrude,      'camera1')
-    do_led(P.camera1_x, P.camera1_y-P.camera1_h/4, P.body_extrude, P.camera1_r*0.6, 'led')
-    camera2_frame = do_camera(P.camera2_x, P.camera2_y, P.body_extrude, P.camera3_diameter-0.1, P.camera2_frame, P.camera2_extrude, 'camera2')
-    camera3_frame = do_camera(P.camera3_x, P.camera3_y, P.body_extrude, P.camera3_diameter-0.1, P.camera3_frame, P.camera3_extrude, 'camera3')
+    camera1, camera1_frame, camera1_lense, camera1_inner, camera1_outer, camera1_lense, camera1_back = do_camera(P.camera1_x, P.camera1_y+P.camera1_h/4, P.body_extrude, P.camera1_r*2-0.1, P.camera1_frame, P.camera1_extrude,      'camera1')
+    led, outer, inner = do_led(P.camera1_x, P.camera1_y-P.camera1_h/4, P.body_extrude, P.camera1_r*0.6, 'led')
+    camera2, camera2_frame, camera2_lense, camera2_inner, camera2_outer, camera2_lense, camera2_back = do_camera(P.camera2_x, P.camera2_y, P.body_extrude, P.camera3_diameter-0.1, P.camera2_frame, P.camera2_extrude, 'camera2')
+    camera3, camera3_frame, camera3_lense, camera3_inner, camera3_outer, camera3_lense, camera3_back = do_camera(P.camera3_x, P.camera3_y, P.body_extrude, P.camera3_diameter-0.1, P.camera3_frame, P.camera3_extrude, 'camera3')
                     
 
 
@@ -391,12 +415,72 @@ if __name__ == "__main__":
                     Circle(P.charger_inner_diameter/2, mode=Mode.SUBTRACT)
             extrude(amount=P.backplate_extrude*2, mode=Mode.ADD)
 
-        
-    define(backplate, "#e19e18ff", "backplate_2")
-    define(charger, "#7c5b18ff", "charger")
-    # Show the box
-    show(*objects)
-    
+    with BuildPart(Plane.XY.offset(P.body_extrude)) as charger_frame:
+        with BuildSketch(Plane.XY.offset(P.body_extrude)) as cuts:
+            with Locations(
+                (P.charger_position_x, P.charger_position_y)):
+                Circle(P.charger_outer_diameter/2-0.1, mode=Mode.ADD)
+                Circle(P.charger_inner_diameter/2, mode=Mode.SUBTRACT)
+        extrude(amount=P.backplate_extrude, mode=Mode.ADD)
+
+    define(backplate, "#18e162ff", "phone.backplate")
+    define(charger_frame, "#5cd10eff", "charger")
+
+    P_arm_width: float = 10.0 * mm
+    P_arm1_y_height: float = P.screw_y2 - P.screw_y1 
+    P_arm2_x_height: float = P.screw_x4 - P.screw_x1
+    P_arm_extrude: float = 5.0 * mm
+    with BuildPart(Plane.XY.offset(P.body_extrude+P.backplate_extrude)) as arm1:
+        with Locations(
+                Location((P.screw_x1, P.screw_y2)),
+            ):
+            Box(P_arm_width, P_arm1_y_height, P_arm_extrude, align=(Align.CENTER, Align.MAX), mode=Mode.ADD)   
+            Box(P_arm2_x_height, P_arm_width, P_arm_extrude, align=(Align.MIN, Align.CENTER), mode=Mode.ADD)
+    define(arm1, "#0000ffff", "belta.arm1")
+
+    objects = \
+            { "phone": {
+                "body": phone,
+                "display": display,
+                "back": {
+                    "backplate": backplate,
+                    "charger": charger_frame,
+                    "camera1": {
+                        "frame": camera1_frame,
+                        "lense": camera1_lense,
+                        "inner": camera1_inner,
+                        "outer": camera1_outer,
+                        "back":  camera1_back,
+                        
+                    },
+                    "camera2": {
+                        "frame": camera2_frame,
+                        "lense": camera2_lense,
+                        "inner": camera2_inner,
+                        "outer": camera2_outer,
+                        "back":  camera2_back,
+                    },
+                    "camera3": {
+                        "frame": camera3_frame,
+                        "lense": camera3_lense,
+                        "inner": camera3_inner,
+                        "outer": camera3_outer,
+                        "back":  camera3_back,
+                    },
+                    "led": {
+                        "outer": outer,
+                        "inner": inner,
+                    }
+                },
+                
+            },
+            "belta": {
+                "arm1": arm1,
+            },
+    }
+
+    show(objects, glass=no)
+
     # Export the box if do_export is True
     if P.do_export:
         debug("Exporting model")
@@ -407,29 +491,18 @@ if __name__ == "__main__":
                         .replace('.py', '.stl')
         export_path = Path(__file__).parent / export_name
         console.log(f"[green]Model exported to {export_path}[/green]")
-        exporter = Mesher()
-        exporter.add_shape(display.part)
-        exporter.add_shape(phone.part)
-        exporter.add_shape(backplate.part)
-        exporter.write(export_path)
         
-        exporter = Mesher()
-        exporter.add_shape(display.part)
-        exporter.write(export_path.with_name(export_path.stem + "_display.stl"))
-        
-        exporter = Mesher()
-        exporter.add_shape(phone.part)
-        exporter.write(export_path.with_name(export_path.stem + "_phone.stl"))
-        
-        exporter = Mesher()
-        exporter.add_shape(backplate.part)
-        exporter.write(export_path.with_name(export_path.stem + "_backplate.stl"))
 
-        exporter = Mesher()
-        exporter.add_shape(camera1_frame.part)
-        exporter.add_shape(camera2_frame.part)
-        exporter.add_shape(camera3_frame.part)
-        exporter.add_shape(charger.part)
-        exporter.write(export_path.with_name(export_path.stem + "_addons.stl"))
+        # Full model:
+        export_parts_to_stl(export_path, [display, phone, backplate, charger, camera1_frame, camera2_frame, camera3_frame])
         
-        del exporter        
+        # Individual parts:
+        export_parts_to_stl((export_path, "display", "1"), [display])
+        export_parts_to_stl((export_path, "phone", "1"), [phone])
+        export_parts_to_stl((export_path, "backplate", "1"), [backplate])
+        export_parts_to_stl([export_path, "addons", "1"], [camera1_frame, camera2_frame, camera3_frame, charger_frame])
+        export_parts_to_stl((export_path, "lenses", "1"), [camera1_lense, camera2_lense, camera3_lense])
+        # 3mf export
+        export_name = export_name.replace('.stl', '.3mf')
+        export_path = Path(__file__).parent / export_name
+        
