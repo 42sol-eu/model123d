@@ -218,7 +218,7 @@ with BuildPart() as case:
     fillet(edges[3], 1)
     
     with Locations( 
-            Location((0, P_belta_height * 0.05, P_belta_extrude / 2 - 0.5)),
+            Location((0, P_belta_height * 0.06, P_belta_extrude / 2 - 0.5)),
             Location((0, P_belta_height * 0.1, P_belta_extrude / 2 - 0.5)),
             Location((0, P_belta_height * 0.15, P_belta_extrude / 2 - 0.5)),
             Location((0, P_belta_height * 0.2, P_belta_extrude / 2 - 0.5)),
