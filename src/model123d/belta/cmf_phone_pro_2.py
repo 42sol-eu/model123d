@@ -13,7 +13,8 @@ project:
 #%% [Imports]
 from build123d import *
 
-from ocp_vscode import show, show_object, set_defaults, Camera
+from ocp_vscode import show, show_object, set_defaults, Camera, set_colormap, ColorMap
+from ocp_vscode.colors import ListedColorMap
 from pathlib import Path
 from rich.console import Console
 from math import sqrt
@@ -26,6 +27,7 @@ from parameter import Parameters  # Absolute import for direct script execution
 from phone_model import build_phone_model, get_phone_objects
 from phone_backplate import build_phone_backplate, get_backplate_objects
 from export import export_all
+import colorsys
 
 P = Parameters()
 set_defaults(reset_camera=Camera.KEEP,)
@@ -49,16 +51,6 @@ P_arm2_x_height: float = P.screw_x4 - P.screw_x1 + 15
 P_arm_extrude: float = 3.0 * mm
 
 P_arm_z: float = P.body_extrude + P.backplate_extrude + 2
-
-with BuildPart() as arm1_part:
-    with BuildSketch(Plane.XZ) as sketch:
-        with BuildLine() as arm1_line:
-            l1 = Line( (P.screw_x1, P.screw_y1), (P.screw_x2, P.screw_y2))
-            l2 = Line( (P.screw_x2, P.screw_y2), (P.screw_x4, P.screw_y4))
-            l3 = Line( (P.screw_x4, P.screw_y4), (P.screw_x4, P.screw_y3))
-            l4 = Line( (P.screw_x4, P.screw_y3), (P.screw_x3, P.screw_y3))
-        a = Rectangle(3,2)
-    sweep(transition=Transition.TRANSFORMED)
     
 
     
@@ -100,20 +92,114 @@ def get_marked_faces(part):
     
     return faces
 
+def colorize_named_faces(part):
+    """
+    Colors all faces of a part that are named 'face_X_{counter}'.
+    Each axis (X, Y, Z) gets a different color palette.
+    """
+
+    axis_colors = {
+        'X': (0.0, 1.0, 1.0),   # Red
+        'Y': (0.33, 1.0, 1.0),  # Green
+        'Z': (0.66, 1.0, 1.0),  # Blue
+    }
+    colored_faces = {}
+    colors = ColorMap.tab20()
+    for axis, (h, s, v_base) in axis_colors.items():
+        if axis == 'X':
+            faces = part.faces().filter_by(Axis.X)
+        elif axis == 'Y':
+            faces = part.faces().filter_by(Axis.Y)
+        elif axis == 'Z':
+            faces = part.faces().filter_by(Axis.Z)
+        else:
+            continue
+        
+        for idx, face in enumerate(faces):
+            face.name = f"face_{axis}_{idx}"
+            # Vary the value for each counter
+            v = 0.5 + 0.5 * ((idx % 10) / 10)
+            rgb = colorsys.hsv_to_rgb(h, s, v)
+            hex_color = '#{:02x}{:02x}{:02x}ff'.format(
+                int(rgb[0]*255), int(rgb[1]*255), int(rgb[2]*255)
+            )
+            face.color = colors.__next__()
+            colored_faces[face.name] = face
+    return colored_faces
+
+P_belta_thickness: float = 5.0 * mm
+P_belta_width: float = P.body_width + P_belta_thickness * 2 * mm
+P_belta_height: float = P.body_height + P_belta_thickness * 2 * mm
+P_belta_extrude: float =  P.body_extrude + P.backplate_extrude + P_belta_thickness * mm
+points_top = [
+    (0., P_belta_height * 0.9),
+    (0., P_belta_height * 1.2),
+    (P_belta_width * 1.2, P_belta_height * 1.2),  
+    (P_belta_width * 1.2, P_belta_height * 0.5),
+]
+points_inner = [
+    (P_belta_width * 0., P_belta_height * 0.1),
+    (P_belta_width * 0., P_belta_height * 0.7),
+    (P_belta_width * 1., P_belta_height * 0.4),  
+    (P_belta_width * 1., P_belta_height * 0.1),
+]
+
+with BuildPart() as case:
+    with BuildSketch(Plane.XY) as bottom_sketch:
+        RectangleRounded(   P_belta_width, P_belta_height, P.body_radius,
+                            align=(Align.MIN, Align.MIN))
+    extrude(amount=P_belta_extrude, mode=Mode.ADD)
+    
+    with BuildSketch(Plane.XY.offset(P_belta_thickness/2)) as inner_cut:
+        with Locations((P_belta_thickness-2, P_belta_thickness-2)):
+            RectangleRounded(   P_belta_width-P_belta_thickness-2, 
+                                P_belta_height,
+                                P.body_radius,
+                                align=(Align.MIN, Align.MIN))
+    extrude(amount=P.body_extrude + P.backplate_extrude, mode=Mode.SUBTRACT) 
+    
+    with BuildSketch(Plane.XY.offset(P_belta_thickness)) as top_right_cut:
+        with Locations((P_belta_width * 0.5, P_belta_height * 0.75)):
+            Polygon(*points_top)
+            
+    extrude(amount=P_belta_extrude, mode=Mode.SUBTRACT) 
+
+    with BuildSketch(Plane.XY.offset(P_belta_extrude/2+P_belta_thickness/2)) as top_inner_sketch:
+        with Locations((P_belta_width * 0.5, P_belta_height * 0.35)):
+            Polygon(*points_inner)
+            
+    extrude(amount=P_belta_extrude, mode=Mode.SUBTRACT) 
+
+
+with BuildPart() as leader_case:
+    Box(P_belta_width+P_belta_thickness, P_belta_height, P_belta_extrude, align=(Align.MIN, Align.MIN, Align.MIN), mode=Mode.ADD)
+    # Get the bottom face of the case (Plane.XY, lowest Z)
+    bottom_face = case.faces().filter_by(Plane.XY).sort_by(Axis.Z)[0]
+    bottom_face.color = "#00bfff88"  # Optional: color it for visualization
+    offset(amount=-P_belta_thickness/2, openings=bottom_face)  # Offset the bottom face inward
+
+    
+case.part.move(Location((-P_belta_thickness, -P_belta_thickness, -2.2)))
+leader_case.part.move(Location((-P_belta_thickness/2, -P_belta_thickness, -2.2)))
+define(case, "#f4f44b2c", "belta.case", alpha=0.8)
+define(leader_case, "#f4f44b2c", "belta.leader_case", alpha=0.8)
+
 objects = \
     {
             "phone": get_phone_objects(),
             "backplate": get_backplate_objects(),
             "belta": {
-                'arm1_line': arm1_line,
+                'case': case.part,
+                'leader_case': leader_case.part,
+                #'arm1_line': arm1_line,
                 #'arm2_line': arm2_line,
                 #'arm3_line': arm3_line,
                 #'arm4_line': arm4_line,
-                'arm1': arm1_part,
+                #'arm1': arm1_part,
                 #'arm2': arm2_part,
                 #'arm3': arm3_part,
                 #'arm4': arm4_part,
-                'faces': get_marked_faces(arm1)
+                'faces': colorize_named_faces(case)
             },
     }
 
