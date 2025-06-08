@@ -28,6 +28,7 @@ from phone_model import build_phone_model, get_phone_objects
 from phone_backplate import build_phone_backplate, get_backplate_objects
 from export import export_all
 import colorsys
+import random
 
 P = Parameters()
 set_defaults(reset_camera=Camera.KEEP,)
@@ -127,6 +128,21 @@ def colorize_named_faces(part):
             colored_faces[face.name] = face
     return colored_faces
 
+def colorize_edges_of_face(face):
+    """
+    Assigns a unique color to every edge in the given face.
+    Returns a dictionary mapping edge names to edge objects.
+    """
+
+    colored_edges = {}
+    for idx, edge in enumerate(face.edges()):
+        # Generate a random color for each edge
+        color = "#{:06x}ff".format(random.randint(0, 0xFFFFFF))
+        edge.name = f"edge_{idx}"
+        edge.color = color
+        colored_edges[edge.name] = edge
+    return colored_edges
+
 P_belta_thickness: float = 5.0 * mm
 P_belta_width: float = P.body_width + P_belta_thickness * 2 * mm
 P_belta_height: float = P.body_height + P_belta_thickness * 2 * mm
@@ -144,11 +160,17 @@ points_inner = [
     (P_belta_width * 1., P_belta_height * 0.1),
 ]
 
+with BuildPart() as stitch:
+    with BuildSketch() as sketch:
+        Circle(0.75, align=(Align.CENTER, Align.MIN))
+    extrude(amount=10*P_belta_extrude, mode=Mode.ADD)
+stitch_x = stitch.part.rotate(Axis.Y, 90)
+
 with BuildPart() as case:
     with BuildSketch(Plane.XY) as bottom_sketch:
         RectangleRounded(   P_belta_width, P_belta_height, P.body_radius,
                             align=(Align.MIN, Align.MIN))
-    extrude(amount=P_belta_extrude, mode=Mode.ADD)
+    extrude(amount=P_belta_extrude+2.0, mode=Mode.ADD)
     
     with BuildSketch(Plane.XY.offset(P_belta_thickness/2)) as inner_cut:
         with Locations((P_belta_thickness-2, P_belta_thickness-2)):
@@ -156,9 +178,9 @@ with BuildPart() as case:
                                 P_belta_height,
                                 P.body_radius,
                                 align=(Align.MIN, Align.MIN))
-    extrude(amount=P.body_extrude + P.backplate_extrude, mode=Mode.SUBTRACT) 
+    extrude(amount=P.body_extrude + P.backplate_extrude + 2.0, mode=Mode.SUBTRACT) 
     
-    with BuildSketch(Plane.XY.offset(P_belta_thickness)) as top_right_cut:
+    with BuildSketch(Plane.XY.offset(P_belta_thickness/2)) as top_right_cut:
         with Locations((P_belta_width * 0.5, P_belta_height * 0.75)):
             Polygon(*points_top)
             
@@ -170,19 +192,62 @@ with BuildPart() as case:
             
     extrude(amount=P_belta_extrude, mode=Mode.SUBTRACT) 
 
+    with BuildSketch(Plane.XY.offset(P_belta_extrude+0)) as top_inner_sketch:
+        with Locations((P_belta_width * 0.5, 10.0 + P_belta_height * 0.35)):
+            Polygon(*points_inner)
+            
+    extrude(amount=P_belta_extrude, mode=Mode.SUBTRACT) 
+    
+    
+    with Locations( Location((0, 8.8, 3.0)) ):
+        Box(1.5,114.3,10.0,align=(Align.MIN, Align.MIN, Align.MIN), mode=Mode.SUBTRACT)
 
-with BuildPart() as leader_case:
-    Box(P_belta_width+P_belta_thickness, P_belta_height, P_belta_extrude, align=(Align.MIN, Align.MIN, Align.MIN), mode=Mode.ADD)
-    # Get the bottom face of the case (Plane.XY, lowest Z)
-    bottom_face = case.faces().filter_by(Plane.XY).sort_by(Axis.Z)[0]
-    bottom_face.color = "#00bfff88"  # Optional: color it for visualization
-    offset(amount=-P_belta_thickness/2, openings=bottom_face)  # Offset the bottom face inward
+    with Locations( Location((P_belta_width-1.5, 8.8, 3.0)) ):
+        Box(1.5,62.0,10.0,align=(Align.MIN, Align.MIN, Align.MIN), mode=Mode.SUBTRACT)
 
+    faces_X = case.part.faces().filter_by(Axis.X)
+    left_l = faces_X[2]
+    left_r = faces_X[1]
+    faces_Y = case.part.faces().filter_by(Axis.Y)
+    bottom = faces_Y[1]
+    faces_Z = case.part.faces().filter_by(Axis.Z)
+    up_b = faces_Z[4]
+    up_t = faces_Z[7]
+    edges = up_t.edges()
+    fillet(edges[1], 1)
+    fillet(edges[3], 1)
+    
+    with Locations( 
+            Location((0, P_belta_height * 0.05, P_belta_extrude / 2 - 0.5)),
+            Location((0, P_belta_height * 0.1, P_belta_extrude / 2 - 0.5)),
+            Location((0, P_belta_height * 0.15, P_belta_extrude / 2 - 0.5)),
+            Location((0, P_belta_height * 0.2, P_belta_extrude / 2 - 0.5)),
+            Location((0, P_belta_height * 0.25, P_belta_extrude / 2 - 0.5)),
+            Location((0, P_belta_height * 0.3, P_belta_extrude / 2 - 0.5)),
+            Location((0, P_belta_height * 0.35, P_belta_extrude / 2 - 0.5)),
+            Location((0, P_belta_height * 0.395, P_belta_extrude / 2 - 0.5)),
+            Location((0, P_belta_height * 0.45, P_belta_extrude / 2 - 0.5)),
+            Location((0, P_belta_height * 0.5, P_belta_extrude / 2 - 0.5)),
+            Location((0, P_belta_height * 0.55, P_belta_extrude / 2 - 0.5)),
+            Location((0, P_belta_height * 0.6, P_belta_extrude / 2 - 0.5)),
+            Location((0, P_belta_height * 0.65, P_belta_extrude / 2 - 0.5)),
+            Location((0, P_belta_height * 0.69, P_belta_extrude / 2 - 0.5)),
+            
+        ):
+        add(stitch_x, mode=Mode.SUBTRACT)
+    
+        
     
 case.part.move(Location((-P_belta_thickness, -P_belta_thickness, -2.2)))
-leader_case.part.move(Location((-P_belta_thickness/2, -P_belta_thickness, -2.2)))
 define(case, "#f4f44b2c", "belta.case", alpha=0.8)
-define(leader_case, "#f4f44b2c", "belta.leader_case", alpha=0.8)
+faces_X = case.part.faces().filter_by(Axis.X)
+left_l = faces_X[2]
+left_r = faces_X[1]
+faces_Y = case.part.faces().filter_by(Axis.Y)
+bottom = faces_Y[1]
+faces_Z = case.part.faces().filter_by(Axis.Z)
+up_b = faces_Z[4]
+up_t = faces_Z[7]
 
 objects = \
     {
@@ -190,16 +255,13 @@ objects = \
             "backplate": get_backplate_objects(),
             "belta": {
                 'case': case.part,
-                'leader_case': leader_case.part,
-                #'arm1_line': arm1_line,
-                #'arm2_line': arm2_line,
-                #'arm3_line': arm3_line,
-                #'arm4_line': arm4_line,
-                #'arm1': arm1_part,
-                #'arm2': arm2_part,
-                #'arm3': arm3_part,
-                #'arm4': arm4_part,
-                'faces': colorize_named_faces(case)
+                'left_l': left_l,
+                'left_r': left_r,
+                'bottom': bottom,
+                'up_t': up_t,
+                'up_b': up_b,
+                'faces': colorize_named_faces(case),
+                # 'edges': colorize_edges_of_face(case.part),
             },
     }
 
