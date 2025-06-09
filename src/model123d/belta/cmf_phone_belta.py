@@ -137,11 +137,34 @@ with BuildPart() as case:
     faces_Z = case.part.faces().filter_by(Axis.Z)
     up_b = faces_Z[4]
     up_t = faces_Z[7]
-    edges = up_t.edges()
-    if P.do_post_processing:
-        fillet(edges[1], 1)
-        fillet(edges[3], 1)
 
+    # Vertical mole
+    with BuildSketch(Plane.XY) as molle_xy:
+        with Locations(
+            (P_belta_width * 0.5, P_belta_height * 0.85),
+            (P_belta_width * 0.5, P_belta_height * 0.15),
+        ):
+            with GridLocations(38.0, 25.0, 2, 2):
+                RectangleRounded(30.0, 10.0, 2.0)
+    extrude(amount=P_belta_thickness, mode=Mode.SUBTRACT)
+
+    # Horizontal mole
+    with BuildSketch(Plane.XY) as molle_xy:
+        with Locations(
+            (P_belta_width * 0.5, P_belta_height * 0.5),
+        ):
+            with GridLocations(2*25., 38.0, 2, 2):
+                RectangleRounded(10.0, 30.0, 2.0)
+    extrude(amount=P_belta_thickness, mode=Mode.SUBTRACT)
+    
+    with BuildSketch(bottom) as charger_hole:
+        with Locations(
+            (0, -2),
+        ):
+            RectangleRounded(10.5, 6.5, 3.2)
+    extrude(amount=-P_belta_extrude, mode=Mode.SUBTRACT)
+    define(charger_hole, "#f4f44b2c", "charger", alpha=0.8)
+    edges_1 = case.part.edges().filter_by(lambda e: e.length > 10)
     # Stiches XZ
     with Locations(
         Location((0, P_belta_height * 0.06, P_belta_extrude / 2 - 0.5)),
@@ -215,32 +238,55 @@ with BuildPart() as case:
             Circle(0.75, align=(Align.CENTER, Align.MIN), mode=Mode.ADD)
     extrude(amount=P_belta_extrude, mode=Mode.SUBTRACT)
 
-    # Vertical mole
-    with BuildSketch(Plane.XY) as molle_xy:
-        with Locations(
-            (P_belta_width * 0.5, P_belta_height * 0.85),
-            (P_belta_width * 0.5, P_belta_height * 0.15),
-        ):
-            with GridLocations(38.0, 25.0, 2, 2):
-                RectangleRounded(30.0, 10.0, 2.0)
-    extrude(amount=P_belta_thickness, mode=Mode.SUBTRACT)
+    edges = case.part.edges()
+    if P.do_post_processing:
+        fillet(edges[113], 2)
+        fillet(edges[405], 2)
+        
+        fillet(edges_1[40], 1)
+        
+        fillet(edges_1[28], 1)
+        fillet(edges_1[68], 1)
+        
+        fillet(edges_1[34], 1)
+        fillet(edges_1[61], 1)
 
-    # Horizontal mole
-    with BuildSketch(Plane.XY) as molle_xy:
-        with Locations(
-            (P_belta_width * 0.5, P_belta_height * 0.5),
-        ):
-            with GridLocations(2*25., 38.0, 2, 2):
-                RectangleRounded(10.0, 30.0, 2.0)
-    extrude(amount=P_belta_thickness, mode=Mode.SUBTRACT)
-    
-    with BuildSketch(bottom) as charger_hole:
-        with Locations(
-            (0, -2),
-        ):
-            RectangleRounded(10.5, 6.5, 3.2)
-    extrude(amount=-P_belta_extrude, mode=Mode.SUBTRACT)
-    define(charger_hole, "#f4f44b2c", "charger", alpha=0.8)
+        fillet(edges_1[32], 1)
+        fillet(edges_1[59], 1)
+
+        fillet(edges_1[26], 1)
+        fillet(edges_1[65], 1)
+        
+        fillet(edges_1[31], 1)
+        fillet(edges_1[57], 1)
+        
+        fillet(edges_1[25], 1)
+        fillet(edges_1[63], 1)        
+        
+        fillet(edges_1[23], 1)
+        fillet(edges_1[49], 1)        
+        
+        fillet(edges_1[17], 1)
+        fillet(edges_1[55], 1)          
+
+        fillet(edges_1[20], 1)
+        fillet(edges_1[47], 1)     
+        
+        fillet(edges_1[14], 1)
+        fillet(edges_1[53], 1)          
+
+        fillet(edges_1[18], 1)
+        fillet(edges_1[45], 1)  
+
+        fillet(edges_1[12], 1)
+        fillet(edges_1[51], 1)  
+        
+        fillet(edges_1[7], 1)
+        
+        edges = case.part.faces().filter_by(lambda f: f.area_without_holes == 552.15) \
+                        .edges().filter_by(lambda e: e.length>5.)
+        for edge in edges:
+            fillet(edge, .5)
 
 
 case.part.move(Location((-P_belta_thickness, -P_belta_thickness, -2.2)))
@@ -265,7 +311,7 @@ objects = {
         #'up_t': up_t,
         #'up_b': up_b,
         "faces": colorize_named_faces(case),
-        # 'edges': colorize_edges_of_face(case.part),
+        #'edges': colorize_edges(edges_1),
     },
 }
 

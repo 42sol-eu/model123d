@@ -49,7 +49,7 @@ class Parameters:
     do_screw_holes: bool = yes
     do_backplate_screws: bool = yes
     do_charger: bool = yes
-    do_post_processing: bool = no
+    do_post_processing: bool = yes
     do_export: bool = yes
 
     # Device dimensions

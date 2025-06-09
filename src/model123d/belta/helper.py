@@ -247,19 +247,28 @@ def colorize_named_faces(part):
     return colored_faces
 
 
-def colorize_edges_of_face(face):
+def colorize_edges(edges):
     """
     Assigns a unique color to every edge in the given face.
     Returns a dictionary mapping edge names to edge objects.
     """
 
     colored_edges = {}
-    for idx, edge in enumerate(face.edges()):
+    for idx, edge in enumerate(edges):
         # Generate a random color for each edge
         color = "#{:06x}ff".format(random.randint(0, 0xFFFFFF))
         edge.name = f"edge_{idx}"
         edge.color = color
         colored_edges[edge.name] = edge
+    return colored_edges
+
+
+def colorize_edges_of_face(face):
+    """
+    Assigns a unique color to every edge in the given face.
+    Returns a dictionary mapping edge names to edge objects.
+    """
+    colored_edges = colorize_edges(face.edges())
     return colored_edges
 
 # [End of file
