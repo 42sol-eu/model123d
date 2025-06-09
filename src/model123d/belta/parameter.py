@@ -13,7 +13,7 @@ class Parameters:
     do_backplate_screws: bool = yes
     do_charger: bool          = yes
     do_post_processing: bool  = no
-    do_export: bool           = no
+    do_export: bool           = yes
     
     # Device dimensions
     body_height: float            = 164.0

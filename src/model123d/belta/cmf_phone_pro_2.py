@@ -108,11 +108,11 @@ def colorize_named_faces(part):
     colors = ColorMap.tab20()
     for axis, (h, s, v_base) in axis_colors.items():
         if axis == 'X':
-            faces = part.faces().filter_by(Axis.X)
+            faces = part.faces().filter_by(Axis.X).filter_by(lambda f: f.area_without_holes > 12.0 if type(f) == Face else False)
         elif axis == 'Y':
-            faces = part.faces().filter_by(Axis.Y)
+            faces = part.faces().filter_by(Axis.Y).filter_by(lambda f: f.area_without_holes > 12.0 if type(f) == Face else False)
         elif axis == 'Z':
-            faces = part.faces().filter_by(Axis.Z)
+            faces = part.faces().filter_by(Axis.Z).filter_by(lambda f: f.area_without_holes > 12.0 if type(f) == Face else False)
         else:
             continue
         
@@ -217,6 +217,7 @@ with BuildPart() as case:
     fillet(edges[1], 1)
     fillet(edges[3], 1)
     
+    # Stiches XZ
     with Locations( 
             Location((0, P_belta_height * 0.06, P_belta_extrude / 2 - 0.5)),
             Location((0, P_belta_height * 0.1, P_belta_extrude / 2 - 0.5)),
@@ -236,7 +237,72 @@ with BuildPart() as case:
         ):
         add(stitch_x, mode=Mode.SUBTRACT)
     
-        
+    # Stiches XY
+    with BuildSketch(Plane.XY.offset(P_belta_extrude / 2 - 0.5)) as stiches_xy:
+        with Locations(
+            Location( (P_belta_width * 0.05, P_belta_height * 0.660)),
+            Location( (P_belta_width * 0.1,  P_belta_height * 0.645)),
+            Location( (P_belta_width * 0.15, P_belta_height * 0.630)),
+            Location( (P_belta_width * 0.2,  P_belta_height * 0.615)),
+            Location( (P_belta_width * 0.25, P_belta_height * 0.600)),
+            Location( (P_belta_width * 0.3,  P_belta_height * 0.585)),
+            Location( (P_belta_width * 0.35, P_belta_height * 0.570)),
+            Location( (P_belta_width * 0.4,  P_belta_height * 0.555)),
+            Location( (P_belta_width * 0.45, P_belta_height * 0.540)),
+            Location( (P_belta_width * 0.5,  P_belta_height * 0.525)),
+            Location( (P_belta_width * 0.55, P_belta_height * 0.510)),
+            Location( (P_belta_width * 0.6,  P_belta_height * 0.495)),
+            Location( (P_belta_width * 0.65, P_belta_height * 0.480)),
+            Location( (P_belta_width * 0.7,  P_belta_height * 0.465)),
+            Location( (P_belta_width * 0.75, P_belta_height * 0.451)),
+            Location( (P_belta_width * 0.8,  P_belta_height * 0.436)),
+            Location( (P_belta_width * 0.85, P_belta_height * 0.422)),
+            Location( (P_belta_width * 0.9,  P_belta_height * 0.408)),
+            Location( (P_belta_width * 0.95, P_belta_height * 0.394)),
+        ):
+            Circle(0.75, align=(Align.CENTER, Align.MIN), mode=Mode.ADD)
+    extrude(amount=2*P_belta_extrude, mode=Mode.SUBTRACT)
+    with BuildSketch(Plane.XY.offset(P_belta_extrude / 2 + 6 )) as stiches_xy:
+        with Locations(Location((P_belta_width * 0.5, P_belta_height * 0.06))):
+            Rectangle(P_belta_width - P_belta_thickness * 2.5, P_belta_thickness)
+    extrude(amount=P_belta_thickness/2-1, mode=Mode.ADD)
+    
+    with BuildSketch(Plane.XY.offset(P_belta_extrude / 2 - 0.5)) as stiches_xy:
+        y = P_belta_height * 0.06
+        with Locations(
+            Location( (P_belta_width * 0.1,  y)),
+            Location( (P_belta_width * 0.15, y)),
+            Location( (P_belta_width * 0.2,  y)),
+            Location( (P_belta_width * 0.25, y)),
+            Location( (P_belta_width * 0.3,  y)),
+            Location( (P_belta_width * 0.35, y)),
+            Location( (P_belta_width * 0.4,  y)),
+            Location( (P_belta_width * 0.45, y)),
+            Location( (P_belta_width * 0.5,  y)),
+            Location( (P_belta_width * 0.55, y)),
+            Location( (P_belta_width * 0.6,  y)),
+            Location( (P_belta_width * 0.65, y)),
+            Location( (P_belta_width * 0.7,  y)),
+            Location( (P_belta_width * 0.75, y)),
+            Location( (P_belta_width * 0.8,  y)),
+            Location( (P_belta_width * 0.85, y)),
+            Location( (P_belta_width * 0.9,  y)),
+        ):
+            Circle(0.75, align=(Align.CENTER, Align.MIN), mode=Mode.ADD)
+    extrude(amount=P_belta_extrude, mode=Mode.SUBTRACT)  
+    
+    with BuildSketch(Plane.XY) as molle_xy:
+        with Locations(
+                Location((P_belta_width * 0.5, P_belta_height * 0.5)),
+        ):
+            with GridLocations(38., 25., 2, 7):
+                RectangleRounded( 30.0, 10.0, 2.0)
+    extrude(amount=P_belta_thickness, mode=Mode.SUBTRACT)
+    
+    with BuildSketch(bottom) as charger:
+        RectangleRounded( 15., 5., 1)
+    extrude(amount=-P_belta_extrude, mode=Mode.SUBTRACT)
+    
     
 case.part.move(Location((-P_belta_thickness, -P_belta_thickness, -2.2)))
 define(case, "#f4f44b2c", "belta.case", alpha=0.8)
@@ -255,11 +321,11 @@ objects = \
             "backplate": get_backplate_objects(),
             "belta": {
                 'case': case.part,
-                'left_l': left_l,
-                'left_r': left_r,
-                'bottom': bottom,
-                'up_t': up_t,
-                'up_b': up_b,
+                #'left_l': left_l,
+                #'left_r': left_r,
+                #'bottom': bottom,
+                #'up_t': up_t,
+                #'up_b': up_b,
                 'faces': colorize_named_faces(case),
                 # 'edges': colorize_edges_of_face(case.part),
             },
@@ -272,6 +338,11 @@ except ImportError:
     print("ocp_vscode.show not available. Model built but not displayed.")
 #%% [Export objects]
 
-export_all(P, objects, console)
+P.do_export = yes
+if P.do_export:
+    #export_all(P, __file__, objects, console)
+    mesher = Mesher()
+    mesher.add_shape(case.part)
+    mesher.write(Path(__file__).parent / "belta_case.stl")
 
 # %%

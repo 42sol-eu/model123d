@@ -29,7 +29,11 @@ def export_parts_to_stl(file_path, parts):
         print(f"Exporting to {file_path}")
     exporter = Mesher()
     for part in parts:
-        exporter.add_shape(part.part)
+        # Check if part is a Part or has a 'part' attribute
+        if hasattr(part, 'part'):
+            exporter.add_shape(part.part)
+        else:
+            exporter.add_shape(part)
     exporter.write(file_path)
     del exporter
 
