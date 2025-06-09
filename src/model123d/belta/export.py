@@ -1,76 +1,106 @@
+# -*- coding: utf-8 -*-
+"""
+----
+file-name:      export.py
+file-uuid:      ea868958-edc2-4479-8ca1-d9099fcd4740
+description:   Export functions for the belta project.
+
+project:
+    name:       model123d
+    uuid:       a0b40edb-6c25-41b9-878f-6bf97bfcf0a2
+    url:        https://www.github.com/42sol/model123d
+"""
+
+# [Imports]
+from build123d import Part, Mesher  ##|md: [docs](https://build123d.readthedocs.io)
+from rich import print  ##############|md: [docs](https://rich.readthedocs.io)
+from rich.console import Console  ####|md:
+from pathlib import (
+    Path,
+)  ##|md: [docs](https://docs.python.org/3/library/pathlib.html)
+
+# [Local Imports]
 from parameter import Parameters
-from helper import debug, export_parts_to_stl
+from helper import debug, create_name
 from phone_model import get_phone_objects
 from phone_backplate import get_backplate_objects
 
-def export_all(P: Parameters, file_name: str, objects: dict, console):
-    """Export the model and its parts to STL/3MF files if P.do_export is True. Expects the same objects dict as used in show()."""
-    if not P.do_export:
-        return
-    debug("Exporting model")
-    id = f'1'
-    export_name = file_name \
-                    .replace('{identifier}', id) \
-                    .replace('.py', '.stl')
-    from pathlib import Path
-    export_path = Path(file_name).parent / export_name
-    console.log(f"[green]Model exported to {export_path}[/green]")
+# [Parameters]
+# None
 
-    # Helper to extract parts from the objects dict
-    def get_part(obj, *keys):
-        for key in keys:
-            obj = obj[key]
-        return obj
+# [Global_Variables]
+console = Console()
 
-    # Full model (flatten all parts in objects dict)
-    parts = []
-    for section in objects.values():
-        if isinstance(section, dict):
-            for part in section.values():
-                parts.append(part)
-        else:
-            parts.append(section)
-    export_parts_to_stl(export_path, parts)
+# [Code]
 
-    # Individual parts (example: phone, backplate, etc.)
-    if 'phone' in objects:
-        phone = objects['phone']
-        if 'body' in phone:
-            export_parts_to_stl((export_path, "phone", "1"), [phone['body']])
-        if 'display' in phone:
-            export_parts_to_stl((export_path, "display", "1"), [phone['display']])
-        if 'addons' in backplate:
-            export_parts_to_stl([export_path, "addons", "1"], [backplate['charger']])
-    elif 'backplate' in objects:
-        backplate = objects['backplate']
-        if 'backplate' in backplate:
-            export_parts_to_stl((export_path, "backplate", "1"), [backplate['backplate']])
-    elif 'belta' in objects:
-        case = objects['belta']
-        export_parts_to_stl((export_path, "belta", "1"), [case['case']])
+# [Functions]
+
+
+def export_parts_to_stl(file_path: str, parts: list[Part]) -> str:
+    """
+    Exports a list of Parts to an STL file.
+    If `file_path` is a list or tuple, constructs the file name using the first element as the base path
+    and the remaining elements as suffixes, joined by underscores. Otherwise, uses `file_path` directly.
+
+    Args:
+        file_path (str | list | tuple): The path to the output STL file, or a list/tuple where the first element
+            is the base path and the remaining elements are used as suffixes for the file name.
+        parts (list[Part]): A list of build123d.Part objects to export.
+
+    Returns:
+        file_path (str): The path to the exported STL file, empty string if nothing was exported.
+    """
+    if isinstance(file_path, (list, tuple)):
+        base_path = file_path[0]
+        suffix = "_".join(str(s) for s in file_path[1:])
+        file_path = create_name(base_path, suffix, "stl")
+        print(f"Exporting to {file_path}")
+
+    exporter = Mesher()
+    for part in parts:
+        exporter.add_shape(part)
+    exporter.write(file_path)
+
+    if exporter.has_errors():
+        print(f"Errors occurred during export: {exporter.errors()}")
+        file_path = ""
     else:
-        console.log("[red]No phone or backplate objects found to export.[/red]")
+        print(f"Exported {len(parts)} parts to {file_path}")
 
-    # TODO: 3mf export
-    # export_name = export_name.replace('.stl', '.3mf')
-    # export_path = Path(__file__).parent / export_name
+    return file_path
 
-if __name__ == "__main__":
-    from phone_model import build_phone_model
-    from phone_addons import build_phone_addons
-    from phone_backplate import build_phone_backplate
-    from rich.console import Console
-    P = Parameters()
-    console = Console()
-    display_cutout, display, phone, addons = build_phone_model(P)
-    screws, backplate, charger, charger_frame = build_phone_backplate(P)
-    
-    objects = \
-    {
-            "phone": get_phone_objects(),
-            "backplate": get_backplate_objects(),
-            #"belta": {
-            #    'case': case.part,
-            #},
-    }
-    export_all(P, __file__, objects, console)
+
+def export_all(file_path: str, parts: list[Part]) -> str:
+    """
+    Exports a list of Parts to an STL file.
+    If `file_path` is a list or tuple, constructs the file name using the first element as the base path
+    and the remaining elements as suffixes, joined by underscores. Otherwise, uses `file_path` directly.
+
+    Args:
+        file_path (str | list | tuple): The path to the output STL file, or a list/tuple where the first element
+            is the base path and the remaining elements are used as suffixes for the file name.
+        parts (list[Part]): A list of build123d.Part objects to export.
+
+    Returns:
+        file_path (str): The path to the exported STL file, empty if nothing was exported.
+    """
+    if isinstance(file_path, (list, tuple)):
+        base_path = file_path[0]
+        suffix = "_".join(str(s) for s in file_path[1:])
+        file_path = create_name(base_path, suffix, "stl")
+        print(f"Exporting to {file_path}")
+    exporter = Mesher()
+    for part in parts:
+        exporter.add_shape(part)
+    exporter.write(file_path)
+
+    if exporter.has_errors():
+        print(f"Errors occurred during export: {exporter.errors()}")
+        file_path = ""
+    else:
+        print(f"Exported {len(parts)} parts to {file_path}")
+
+    return file_path
+
+
+# [End of file]

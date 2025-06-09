@@ -119,4 +119,5 @@ if yes or __name__ == "main":
         exporter = Mesher()
         exporter.add_shape(base.part)
         exporter.write(export_path)
-        del exporter        
+        
+# [End of file]      
