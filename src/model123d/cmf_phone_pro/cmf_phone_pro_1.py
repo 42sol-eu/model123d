@@ -21,7 +21,10 @@ from rich.console import Console
 from math import sqrt
 from copy import deepcopy as copy
 
-# [Setup]
+# [Local imports]
+# None 
+
+# [Global Variables]
 console = Console()
 objects = []
 

@@ -19,16 +19,15 @@ from pathlib import Path  # [docs](https://docs.python.org/3/library/pathlib.htm
 
 # [Local Imports]
 from parameter import Parameters
-from helper import define
+from helper import *
 
 # [Parameters]
 
 # [Global_Variables]
-console = Console()
 camera1 = camera2 = camera3 = led = None
 
+# [Code]
 # [Classes]
-
 
 class Camera:
     """A class to create a camera object with a frame, lense, and inner parts."""

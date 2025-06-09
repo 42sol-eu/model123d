@@ -16,21 +16,18 @@ project:
 from rich import print                                     # [docs](https://rich.readthedocs.io)
 from rich.console import Console
 from pathlib import Path                                   # [docs](https://docs.python.org/3/library/pathlib.html)
-
-# [Parameters]
-
-# [Global_Variables]
-console = Console()
-
-# [Code]
-# [Imports]
 from build123d import *
 
 # [Local Imports]
-from helper import define
+from helper import *
+
+# [Parameters]
+# None
 
 # [Global Variables]
 screws, backplate, charger, charger_frame = None, None, None, None
+
+# [Code]
 
 # [Functions]
 

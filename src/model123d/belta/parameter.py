@@ -16,6 +16,9 @@ from rich import print  # [docs](https://rich.readthedocs.io)
 from rich.console import Console
 from pathlib import Path  # [docs](https://docs.python.org/3/library/pathlib.html)
 
+# [Local Imports]
+from helper import *
+
 # [Constants]
 no = False
 yes = True
@@ -23,7 +26,7 @@ false = False
 true = True
 
 # [Global_Variables]
-console = Console()
+# None
 
 # [Code]
 # [Imports]

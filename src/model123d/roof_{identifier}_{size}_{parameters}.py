@@ -11,31 +11,25 @@ project:
 """
 
 # [Imports]
-from rich import print                                     # [docs](https://rich.readthedocs.io)
+from build123d import *
+from build123d import MM as mm
+from ocp_vscode import show
+from dataclasses import dataclass
+import sys
 from rich.console import Console
 from pathlib import Path                                   # [docs](https://docs.python.org/3/library/pathlib.html)
 
 # [Parameters]
+
+# [Constants]
+no, yes = False, True
 
 # [Global_Variables]
 console = Console()
 
 # [Code]
 # [Imports]
-from build123d import *
-from build123d import MM as mm
-from ocp_vscode import show
-from dataclasses import dataclass
-from pathlib import Path
-import sys
-from rich.console import Console
-from math import sqrt
 
-# [Constants]
-no, yes = False, True
-
-# [Setup]
-console = Console()
 
 # [Parameters]
 @dataclass

@@ -29,7 +29,7 @@ from phone_backplate import get_backplate_objects
 # None
 
 # [Global_Variables]
-console = Console()
+# None
 
 # [Code]
 

@@ -16,8 +16,15 @@ project:
 from rich import print  # [docs](https://rich.readthedocs.io)
 from rich.console import Console
 from pathlib import Path  # [docs](https://docs.python.org/3/library/pathlib.html)
+from ocp_vscode import ColorMap  # [docs](https://github.com/42sol/ocp-vscode)
+import colorsys
+import random
+
+# [Local imports]
+# none
 
 # [Parameters]
+# none
 
 # [Global_Variables]
 console = Console()
@@ -34,9 +41,6 @@ from parameter import Parameters
 
 # [Constants]
 from build123d import MM as mm
-
-console = Console()
-
 
 # [Functions]
 
@@ -167,5 +171,95 @@ if __name__ == "__main__":
         print("do_screw executed successfully")
     except Exception as e:
         print(f"do_screw failed: {e}")
+
+def get_marked_faces(part):
+    """Returns a list of faces that are marked with a color."""
+    faces = {}
+    part_faces = part.faces()
+
+    faces["top"] = part_faces.filter_by(Plane.XY)[0]
+    faces["top"].color = "#ff0000aa"  # Mark the top face with a specific color
+    faces["bottom"] = part_faces.filter_by(Plane.XY)[1]
+    faces["bottom"].color = "#1a2ede75"  # Mark the top face with a specific color
+    faces["left"] = part_faces.filter_by(Plane.YZ)[0]
+    faces["left"].color = "#62babaff"  # Mark the left face with a specific color
+    faces["right"] = part_faces.filter_by(Plane.YZ)[1]
+    faces["right"].color = "#09ff0086"  # Mark the left face with a specific color
+    faces["front"] = part_faces.filter_by(Plane.XZ)[0]
+    faces["front"].color = "#eeff00"  # Mark the front face with a specific color
+    faces["back"] = part_faces.filter_by(Plane.XZ)[1]
+    faces["back"].color = "#ff00fba5"  # Mark the back face with a specific color
+
+    return faces
+
+
+def colorize_named_faces(part):
+    """
+    Colors all faces of a part that are named 'face_X_{counter}'.
+    Each axis (X, Y, Z) gets a different color palette.
+    """
+
+    axis_colors = {
+        "X": (0.0, 1.0, 1.0),  # Red
+        "Y": (0.33, 1.0, 1.0),  # Green
+        "Z": (0.66, 1.0, 1.0),  # Blue
+    }
+    colored_faces = {}
+    colors = ColorMap.tab20()
+    for axis, (h, s, v_base) in axis_colors.items():
+        if axis == "X":
+            faces = (
+                part.faces()
+                .filter_by(Axis.X)
+                .filter_by(
+                    lambda f: f.area_without_holes > 12.0 if type(f) == Face else False
+                )
+            )
+        elif axis == "Y":
+            faces = (
+                part.faces()
+                .filter_by(Axis.Y)
+                .filter_by(
+                    lambda f: f.area_without_holes > 12.0 if type(f) == Face else False
+                )
+            )
+        elif axis == "Z":
+            faces = (
+                part.faces()
+                .filter_by(Axis.Z)
+                .filter_by(
+                    lambda f: f.area_without_holes > 12.0 if type(f) == Face else False
+                )
+            )
+        else:
+            continue
+
+        for idx, face in enumerate(faces):
+            face.name = f"face_{axis}_{idx}"
+            # Vary the value for each counter
+            v = 0.5 + 0.5 * ((idx % 10) / 10)
+            rgb = colorsys.hsv_to_rgb(h, s, v)
+            hex_color = "#{:02x}{:02x}{:02x}ff".format(
+                int(rgb[0] * 255), int(rgb[1] * 255), int(rgb[2] * 255)
+            )
+            face.color = colors.__next__()
+            colored_faces[face.name] = face
+    return colored_faces
+
+
+def colorize_edges_of_face(face):
+    """
+    Assigns a unique color to every edge in the given face.
+    Returns a dictionary mapping edge names to edge objects.
+    """
+
+    colored_edges = {}
+    for idx, edge in enumerate(face.edges()):
+        # Generate a random color for each edge
+        color = "#{:06x}ff".format(random.randint(0, 0xFFFFFF))
+        edge.name = f"edge_{idx}"
+        edge.color = color
+        colored_edges[edge.name] = edge
+    return colored_edges
 
 # [End of file

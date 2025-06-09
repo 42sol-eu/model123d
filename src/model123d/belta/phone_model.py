@@ -16,15 +16,6 @@ project:
 from rich import print  # [docs](https://rich.readthedocs.io)
 from rich.console import Console
 from pathlib import Path  # [docs](https://docs.python.org/3/library/pathlib.html)
-
-# [Parameters]
-
-# [Global_Variables]
-console = Console()
-
-# [Code]
-
-# [Imports]
 from build123d import *
 
 # [Local Imports]
@@ -33,11 +24,25 @@ from parameter import Parameters
 from phone_addons import build_phone_addons, get_addon_objects
 from phone_backplate import build_phone_backplate, get_backplate_objects
 
-display_cutout, display, body, addons = None, None, None, None
+
+# [Parameters]
+
+# [Global Variables]
+display_cutout = display = body = addons = None
+
+
+# [Code]
+
+# [Functions]
 
 
 def build_phone_model(P):
-    """Builds the phone body and display, returns (display_cutout, display, body)"""
+    """Builds the phone body and display, 
+    Args:
+        P (Parameters): Parameters for the phone model
+    Returns:
+        tuple: A tuple containing (display_cutout, display, body)
+    """
     global display_cutout, display, body, addons
 
     with BuildPart() as display_cutout:
