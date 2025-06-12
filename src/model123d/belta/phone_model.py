@@ -21,7 +21,7 @@ from build123d import *
 # [Local Imports]
 from helper import *
 from parameter import Parameters
-from phone_addons import build_phone_addons, get_addon_objects
+from phone_addons import build_phone_addons, get_addon_objects, camera1, camera2, camera3, led
 from phone_backplate import build_phone_backplate, get_backplate_objects
 
 
@@ -29,7 +29,6 @@ from phone_backplate import build_phone_backplate, get_backplate_objects
 
 # [Global Variables]
 display_cutout = display = body = addons = None
-
 
 # [Code]
 
@@ -117,6 +116,7 @@ def build_phone_model(P):
     define(body, "#ccccd3ff", "body")
     define(display, "#000000ff", "display")
     addons = build_phone_addons(P)
+    camera1, camera2, camera3, led = addons
     return display_cutout, display, body, addons
 
 
