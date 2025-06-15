@@ -89,7 +89,7 @@ with BuildPart() as part:
     sweep(tool(Plane.XZ, point_1_0, 1), edge_1, mode=Mode.SUBTRACT)
     sweep(tool(Plane.XY, point_2_0, 1), edge_2, mode=Mode.SUBTRACT)
     
-    # sweep(tool(Plane.XZ, point_3_1, 0), edge_3, mode=Mode.ADD)
+    # sweep(tool(Plane.XZ, point_3_0, 0), edge_3, mode=Mode.ADD)
     
 objects['part'] = part.part
 part.name = "Box"
