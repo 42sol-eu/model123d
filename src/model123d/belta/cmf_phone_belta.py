@@ -46,11 +46,7 @@ debug("Creating model")
 display_cutout, display, phone, addons = build_phone_model(P)
 screws, backplate, charger, charger_frame = build_phone_backplate(P)
 
-# %% [build arm model]
-
-
-
-
+# %% [setup parameters]
 
 P_belta_thickness: float = 4.8 * mm
 P_belta_width: float = P.body_width + P_belta_thickness * 2 * mm
@@ -69,11 +65,102 @@ points_inner = [
     (P_belta_width * 1.0, P_belta_height * 0.7),
 ]
 
-with BuildPart() as stitch:
-    with BuildSketch() as sketch:
-        Circle(0.75, align=(Align.CENTER, Align.MIN))
-    extrude(amount=10 * P_belta_extrude, mode=Mode.ADD)
-stitch_x = stitch.part.rotate(Axis.Y, 90)
+# %% [Build case base]
+with BuildPart() as top_case:
+    with BuildSketch(Plane.XY) as top_sketch:
+        with Locations((-P_belta_thickness, -P_belta_thickness)):
+            RectangleRounded(
+                P_belta_width + 2 * P_belta_thickness,
+                P_belta_height * 0.775,
+                P_belta_extrude * 1.05,
+                align=(Align.MIN, Align.MIN, Align.MIN),
+            )
+    extrude(amount=P_belta_extrude + P_belta_thickness, 
+            mode=Mode.ADD)
+
+    with BuildSketch(Plane.XY) as bottom_sketch:
+        with Locations(
+            (-P_belta_thickness, P_belta_height * 0. - P_belta_thickness),
+            (P_belta_width-21.8-P_belta_thickness, P_belta_height * 0. - P_belta_thickness)
+        ):
+            RectangleRounded(
+                P_belta_extrude * 2.15,
+                P_belta_height * 0.775,
+                P_belta_extrude * 1.05,
+                align=(Align.MIN, Align.MIN, Align.MIN),
+            )
+        with Locations(
+            (+P_belta_thickness+6, -14)
+        ):
+            Rectangle(  66.0, P_belta_height*1.4, align=(Align.MIN, Align.MIN), 
+                        mode=Mode.SUBTRACT)
+    extrude(amount=-P_belta_thickness*0.5, 
+            mode=Mode.ADD).move(Location((0,0, -P_belta_extrude)))
+
+    with BuildSketch(Plane.XY) as bottom_sketch:
+        RectangleRounded(
+            P_belta_width, P_belta_height, P.body_radius, align=(Align.MIN, Align.MIN)
+        )
+    extrude(amount=P_belta_extrude + 2.0, mode=Mode.SUBTRACT)
+
+    with BuildSketch(Plane.ZY.offset(P_belta_width/2)) as side_hole:
+        with Locations(
+            ((P_belta_extrude + P_belta_thickness/2.) * 0.5, 103.4),
+            ((P_belta_extrude + P_belta_thickness/2.) * 0.5, 103.4-38.0),
+            ((P_belta_extrude + P_belta_thickness/2.) * 0.5, 103.4-76.0),
+        ):
+            RectangleRounded(10.0, 30.0, 2.0)
+    extrude(amount=-2*P_belta_width, mode=Mode.SUBTRACT)
+
+    # Horizontal mole
+    with BuildSketch(Plane.XY) as molle2_xy_top:
+        with Locations(
+            (P_belta_width * 0.5, P_belta_height * 0.5),
+        ):
+            with GridLocations(2*25.+25, 38.0, 2, 2):
+                RectangleRounded(6.0, 30.0, 2.0)
+    extrude(amount=P_belta_thickness*0.5, mode=Mode.ADD)
+
+
+
+    with Locations(
+        ((P_belta_width) * 0.5, (P_belta_height-2*P_belta_thickness) * 0.5, P_belta_extrude-2),
+        ):
+        spacer = Cylinder(
+            radius=59./2.,
+            height= 1.2*P_belta_thickness,
+            mode=Mode.ADD,
+            align=(Align.CENTER, Align.CENTER, Align.MIN),
+        )
+
+
+
+    long_molle_edges_top = top_case.part.edges().filter_by(lambda e: e.length == 26).sort_by(Axis.X)
+    short_molle_edges_top = top_case.part.edges().filter_by(lambda e: e.length == 10.)
+    other_edges = top_case.part.edges().filter_by(lambda e: e not in long_molle_edges_top and e not in short_molle_edges_top and e.length >10.)
+
+    faces_Y = top_case.part.faces().filter_by(Axis.Y)
+    with BuildSketch(faces_Y[0].offset(-P_belta_thickness)) as bottom_sketch:
+        with GridLocations(23., 1, 3, 1):
+            RectangleRounded(20.0, 10.0, 2.0)
+    extrude(amount=2*P_belta_thickness, mode=Mode.SUBTRACT)
+    
+    P.do_post_processing = yes
+    if P.do_post_processing:
+        for index, edge in enumerate(long_molle_edges_top):
+            if index <= 18 or index >= 22:
+                if index % 2 == 1 and index not in [15,17]:
+                    fillet(edge, 1.0)
+                    
+        chamfer(spacer.edges()[-1], 3.0)
+
+
+
+    
+    
+    top_case.part.faces().filter_by(Axis.Z)[0].color = (1, 0, 0)
+define(top_case, "#f4f44b2c", "belta.top_case", alpha=0.8)
+# %% [Build case]
 
 with BuildPart() as case:
     with BuildSketch(Plane.XY) as bottom_sketch:
@@ -98,16 +185,11 @@ with BuildPart() as case:
 
     extrude(amount=P_belta_extrude, mode=Mode.SUBTRACT)
 
-
+    
     faces_X = case.part.faces().filter_by(Axis.X)
-    # left_l = faces_X[2]
-    # left_r = faces_X[1]
     faces_Y = case.part.faces().filter_by(Axis.Y)
-    # bottom = faces_Y[1]
     faces_Z = case.part.faces().filter_by(Axis.Z)
-    # up_b = faces_Z[4]
-    # up_t = faces_Z[7]
-
+    
     # Vertical mole
     with BuildSketch(Plane.XY) as molle1_xy:
         with Locations(
@@ -152,29 +234,35 @@ with BuildPart() as case:
         for index, edge in enumerate(long_molle_edges):
             if index < 89:
                 if index % 2 == 1:
-                    print(f"Filleting long molle edge {index}")
                     fillet(edge, 1.0)
                 
         chamfer_tool = 2.0
         chamfer(other_edges[0], chamfer_tool)
         chamfer(other_edges[2], chamfer_tool)
 
-    with BuildSketch(Plane.XY.offset(-2)) as patch:
-        with Locations(
-            (P_belta_width * 0.5, P_belta_height * 0.475),
+    with Locations(
+        ((P_belta_width) * 0.5, (P_belta_height-2*P_belta_thickness) * 0.5, -2),
         ):
-            Circle(30.0, align=(Align.CENTER, Align.CENTER))
-    extrude(amount=2*P_belta_extrude, mode=Mode.SUBTRACT)
-    circle_edge = case.part.edges().filter_by(lambda e: e.length > 187 and e.length < 190)
+        spacer = Cylinder(
+            radius=59./2.,
+            height= 2*P_belta_extrude,
+            mode=Mode.SUBTRACT,
+            align=(Align.CENTER, Align.CENTER, Align.MIN),
+        )
+
+
     if P.do_post_processing:
+        circle_edge = case.part.edges().filter_by(lambda e: e.length > 187 and e.length < 190)
+    
         for index, edge in enumerate(circle_edge):
-            print(f"Filleting circle edge {index}")
             fillet(edge, 1.0)
+
+define(top_case, "#0000882c", "top", alpha=1.0)
     
 
 addons = get_addon_objects()
 location = Location((P_belta_thickness, P_belta_thickness, 4.2))
-for element in [phone, display, backplate, screws] + list(addons.values()):
+for element in [phone, display, backplate, screws, charger_frame] + list(addons.values()):
     if isinstance(element, Part):
         element.move(location)
     elif type(element) is dict:
@@ -186,29 +274,19 @@ for element in [phone, display, backplate, screws] + list(addons.values()):
     else:
         element.part.move(location)
 
-define(case, "#f4f44b2c", "belta.case", alpha=0.8)
+define(case, "#0000aa2c", "case", alpha=1.0)
 faces_X = case.part.faces().filter_by(Axis.X)
-# left_l = faces_X[2]
-# left_r = faces_X[1]
 faces_Y = case.part.faces().filter_by(Axis.Y)
-# bottom = faces_Y[1]
 faces_Z = case.part.faces().filter_by(Axis.Z)
-# up_b = faces_Z[4]
-# up_t = faces_Z[7]
 
 objects = {
     "phone": get_phone_objects(),
     "backplate": get_backplate_objects(),
     "belta": {
-        "case": case.part,
-        #"patch": patch,
-        #'left_l': left_l,
-        #'left_r': left_r,
-        #'bottom': bottom,
-        #'up_t': up_t,
-        #'up_b': up_b,
-        "faces": colorize_named_faces(case),
-        'edges': colorize_edges(long_molle_edges),
+        "case": case,
+        "top": top_case,
+        #"faces": colorize_named_faces(faces_Y),
+        #"edges": colorize_edges(faces_Y),
     }
 }
 
@@ -227,6 +305,11 @@ if P.do_export:
         mesher = Mesher()
         mesher.add_shape(case.part)
         mesher.write(Path(__file__).parent / "belta_case.stl")
+
+        mesher = Mesher()
+        mesher.add_shape(top_case.part)
+        mesher.write(Path(__file__).parent / "belta_top_case.stl")
+
     except AttributeError:
         pass
 
