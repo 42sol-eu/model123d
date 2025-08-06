@@ -1,0 +1,108 @@
+site_name: Model123d Documentation
+site_description: A 3D modeling collection of parametric models built with build123d
+site_author: Andreas Felix Häberle
+site_url: https://42sol-eu.github.io/model123d
+
+repo_name: 42sol-eu/model123d
+repo_url: https://github.com/42sol-eu/model123d
+
+theme:
+  name: material
+  palette:
+    # Palette toggle for light mode
+    - scheme: default
+      primary: blue
+      accent: orange
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Palette toggle for dark mode  
+    - scheme: slate
+      primary: blue
+      accent: orange
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_source: true
+            show_root_heading: true
+            show_root_full_path: false
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quick-start.md
+    - Project Structure: getting-started/project-structure.md
+  - Models:
+    - Base Plates: models/base-plates.md
+    - Belt-A Phone Pouch: models/belta.md
+    - Frame Hanger: models/frame-hanger.md
+    - Kitchen Tools: models/kitchen.md
+    - Trash Bin Feet: models/trash-bin-feet.md
+    - CMF Phone Pro: models/cmf-phone-pro.md
+    - Recorder Sleeves: models/recorder.md
+    - Roof Models: models/roof.md
+    - Trailer Plug Tools: models/trailer-plug.md
+    - Repair Tools: models/repair.md
+  - Development:
+    - Contributing: development/contributing.md
+    - Model Template: development/template.md
+    - API Reference: development/api.md
+  - Examples:
+    - Basic Usage: examples/basic-usage.md
+    - Advanced Customization: examples/advanced.md
+    - VS Code Integration: examples/vscode.md
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:materialx.emoji.twemoji
+      emoji_generator: !!python/name:materialx.emoji.to_svg
+  - admonition
+  - pymdownx.details
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/42sol-eu/model123d
+    - icon: fontawesome/solid/envelope
+      link: mailto:felix@42sol.eu
+  version:
+    provider: mike
+
+copyright: Copyright &copy; 2025 Andreas Felix Häberle
