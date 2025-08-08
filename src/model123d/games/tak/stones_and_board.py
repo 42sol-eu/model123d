@@ -46,9 +46,7 @@ class Parameters:
 class StoneParameters(Parameters):
     height:           float   = 21.0 * mm
     width:            float   = 21.0 * mm
-    field_xy:          float   = 32.0 * mm
     depth:            float   =  8.5 * mm
-    field_height:      float   =  6.0 * mm
     bevel:            float   =  0.5 * mm
     mod_b:            float   = 10.0 * mm  # modifier for bevel
     font:             str    = "Arial"     # TODO: implement a font inset
@@ -61,6 +59,18 @@ class StoneParameters(Parameters):
     def __init__(self):
         debug("Initializing stone parameters")
         super().__init__()
+
+@dataclass
+class FieldParameters(StoneParameters):
+    """Parameters for the Tak game board fields."""
+    fields:            int    = 4
+    fields_x:          int    = 4
+    fields_y:          int    = 1
+    field_xy:          float   = 32.0 * mm
+    field_height:      float   =  6.0 * mm
+    do_outer_cuts:    bool = yes
+    do_magnet_guide:  bool = yes
+    debug_magnets:    bool = no
 
 # %% [Tak Stone Model]
 class TakStone:
@@ -266,103 +276,114 @@ class TakStone:
         return self
             
 
-class Field4by4:
-    """3D model for a 4x4 Tak game field using build123d."""
-    
-    def __init__(self, params: StoneParameters = StoneParameters()):
+class Field:
+    """3D model for a Tak game field using build123d."""
+
+    def __init__(self, params: FieldParameters = FieldParameters()):
         self.params = params
-        self.stones = []
+        
+
     
     def build(self) -> BuildPart:
         P = self.params
         debug(f"[bold green]Building Field4by4 with parameters:[/bold green] {self.params}")
         length = P.field_xy
+        full_length_x = P.fields_x *  P.field_xy
+        full_length_y = P.fields_y *  P.field_xy
         with BuildPart() as field:
-            Box(4*length+2, 4*length+2, P.field_height)
+            Box(full_length_x+2, full_length_y+2, P.field_height)
             
             with Locations((0, 0, P.field_height/2)):
-                with GridLocations(length, length, 4, 4):
-                    stone = Box(length-2, length-2, P.field_height*0.4, mode=Mode.ADD)
-                with GridLocations(length, length, 5,5):
-                    spacer = Box( 8, 8, P.field_height, rotation=(0,0,45.),mode=Mode.SUBTRACT)
+                with GridLocations(length, length, P.fields_x, P.fields_y):
+                    Box(length-2, length-2, P.field_height*0.4, mode=Mode.ADD)
+                with GridLocations(length, length, P.fields_x+1,P.fields_y+1):
+                    Box( 8, 8, P.field_height, rotation=(0,0,45.),mode=Mode.SUBTRACT)
+            with GridLocations(length, length, P.fields_x+1, P.fields_y+1):
+                Box( 8, 8, P.field_height, rotation=(0,0,45.))
             
-            with GridLocations(length, length, 5,5):
-                spacer = Box( 8, 8, P.field_height, rotation=(0,0,45.))
             # Cut the outer edges to make spacers flat
-
             with BuildPart() as frame:
-                Box(4*length+12, 4*length+12, P.field_height)
-                Box(4*length+2, 4*length+2, P.field_height, mode=Mode.SUBTRACT)
+                Box(full_length_x+12, full_length_y+12, P.field_height)
+                Box(full_length_x+2, full_length_y+2, P.field_height, mode=Mode.SUBTRACT)
             add(frame, mode=Mode.SUBTRACT)
 
-            with GridLocations(4*length+3, 4*length+3, 2,2):
-                Box( 8, 8, 2*P.field_height, rotation=(0,0,45.), mode=Mode.SUBTRACT)
+            if P.do_outer_cuts:
+                with GridLocations(full_length_x+3, full_length_y+3, 2,2):
+                    Box( 8, 8, 2*P.field_height, rotation=(0,0,45.), mode=Mode.SUBTRACT)
 
-            with GridLocations(4*length+3, 4*length+3, 1, 2):
-                with GridLocations(length, length, 3,1):
-                    Box( 6, 6, 2*P.field_height, rotation=(0,0,45.), mode=Mode.SUBTRACT)
+                if P.fields_x > 1:
+                    with GridLocations(full_length_x+3, full_length_y+3, 1,2):
+                        with GridLocations(length, length, P.fields_x-1,1):
+                            Box( 6, 6, 2*P.field_height, rotation=(0,0,45.), mode=Mode.SUBTRACT)
 
-            with GridLocations(4*length+3, 4*length+3, 2, 1):
-                with GridLocations(length, length, 1,3):
-                    Box( 6, 6, 2*P.field_height, rotation=(0,0,45.), mode=Mode.SUBTRACT)
+                if P.fields_y > 1:
+                    with GridLocations(full_length_x+3, full_length_y+3, 2, 1):
+                        with GridLocations(length, length, 1, P.fields_y-1):
+                            Box( 6, 6, 2*P.field_height, rotation=(0,0,45.), mode=Mode.SUBTRACT)
             
             # Add magnet openings (5mm diameter, 2mm deep) at the center of each field cell
             magnet_diameter = 5 * mm
             magnet_depth = 1.5 * mm
             # Place magnets on the outside faces, 4 per side
-            magnet_offset = (4*length+2)/2 - magnet_depth/2 - 0.8
+            magnet_offset_x = (full_length_x+2)/2 - magnet_depth/2 - 0.8
+            magnet_offset_y = (full_length_y+2)/2 - magnet_depth/2 - 0.8
             magnet_z = 0
             
             # Move magnet slots to be accessed from below, 1 layer below the outer frame
             magnet_slot_z = magnet_z  # below the field base
             magnet_modes = Mode.SUBTRACT
+            if P.debug_magnets:
+                magnet_offset_x += 20 # move the magnets out of the board
+                magnet_offset_y += 20 
+                magnet_modes = Mode.ADD
             # Left and right sides (Y varies, X fixed)
-            for i in range(4):
-                y = -1.5 * length + i * length
+            for i in range(P.fields_y):
+                y = i * length  - full_length_y/2 + length/2 
                 # Left side (X-)
-                with Locations((-magnet_offset, y, magnet_slot_z)):
+                with Locations((-magnet_offset_x, y, magnet_slot_z)):
                     Cylinder(radius=magnet_diameter / 2, height=magnet_depth, rotation=(0, 90., 0), mode=magnet_modes)
                     Box(magnet_diameter/2, magnet_diameter, magnet_depth, rotation=(0, 90., 0), mode=magnet_modes, align=(Align.MAX, Align.CENTER, Align.CENTER))
                     
                 # Right side (X+)
-                with Locations((magnet_offset, y, magnet_slot_z)):
+                with Locations((magnet_offset_x, y, magnet_slot_z)):
                     Cylinder(radius=magnet_diameter / 2, height=magnet_depth, rotation=(0, 90., 0), mode=magnet_modes)
                     Box(magnet_diameter/2, magnet_diameter, magnet_depth, rotation=(0, 90., 0), mode=magnet_modes, align=(Align.MAX, Align.CENTER, Align.CENTER))
                     
                     
             # Top and bottom sides (X varies, Y fixed)
-            for i in range(4):
-                x = -1.5 * length + i * length
+            for i in range(P.fields_x):
+                x = i * length - full_length_x/2 + length/2
                 # Bottom side (Y-)
-                with Locations((x, -magnet_offset, magnet_slot_z)):
+                with Locations((x, -magnet_offset_y, magnet_slot_z)):
                     Cylinder(radius=magnet_diameter / 2, height=magnet_depth, rotation=(90., 0, 0), mode=magnet_modes)
                     Box(magnet_diameter/2, magnet_depth, magnet_diameter, rotation=(0, 90., 0), mode=magnet_modes, align=(Align.MAX, Align.CENTER, Align.CENTER))
                 # Top side (Y+)
-                with Locations((x, magnet_offset, magnet_slot_z)):
+                with Locations((x, magnet_offset_y, magnet_slot_z)):
                     Cylinder(radius=magnet_diameter / 2, height=magnet_depth, rotation=(90., 0, 0), mode=magnet_modes)
                     Box(magnet_diameter/2, magnet_depth, magnet_diameter, rotation=(0, 90., 0), mode=magnet_modes, align=(Align.MAX, Align.CENTER, Align.CENTER))
 
-            # Add a triangle on top of each field cell
-            triangle_height = P.field_height * 0.08
-            triangle_base = 1.
-            triangle_offset_z = P.field_height * 0.34
+            if P.do_magnet_guide:
+                # Add a triangle on top of each field cell
+                triangle_height = P.field_height * 0.08
+                triangle_base = 1.
+                triangle_offset_z = P.field_height * 0.34
 
-            with BuildSketch(Plane.XY.offset(triangle_offset_z)) as tri_sketch:
-                with GridLocations(4*length+3, 4*length-5, 1, 2):
-                    with GridLocations(length, length, 4,1):
-                        Triangle(   a=triangle_base, b=triangle_base+1, c=triangle_base+1,
-                                    rotation=0.0)
+                with BuildSketch(Plane.XY.offset(triangle_offset_z)) as tri_sketch:
+                    with GridLocations(full_length_x+3, full_length_y-5, 1, 2):
+                        with GridLocations(length, length, P.fields_x,1):
+                            Triangle(   a=triangle_base, b=triangle_base+1, c=triangle_base+1,
+                                        rotation=0.0)
 
-            extrude(tri_sketch.sketch, amount=triangle_height, mode=Mode.SUBTRACT)
+                extrude(tri_sketch.sketch, amount=triangle_height, mode=Mode.SUBTRACT)
 
-            with BuildSketch(Plane.XY.offset(triangle_offset_z)) as tri_sketch:
+                with BuildSketch(Plane.XY.offset(triangle_offset_z)) as tri_sketch:
 
-                with GridLocations(4*length-5, 4*length+3, 2, 1):
-                    with GridLocations(length, length, 1,4):
-                        Triangle(   a=triangle_base, b=triangle_base+1, c=triangle_base+1,
-                                    rotation=90.0)
+                    with GridLocations(full_length_x-5, full_length_y+3, 2, 1):
+                        with GridLocations(length, length, 1,P.fields_y):
+                            Triangle(   a=triangle_base, b=triangle_base+1, c=triangle_base+1,
+                                        rotation=90.0)
 
-            extrude(tri_sketch.sketch, amount=triangle_height, mode=Mode.SUBTRACT)
+                extrude(tri_sketch.sketch, amount=triangle_height, mode=Mode.SUBTRACT)
 
 
 
@@ -371,7 +392,12 @@ class Field4by4:
     
     def export(self) -> BuildPart:
         P = self.params
-        debug("[yellow]Exporting Field4by4 STL...[/yellow]")
+        name = f"tak_field_{P.fields_x}x{P.fields_y}"
+        if P.do_outer_cuts:
+            name += "_outer_cuts"
+        if P.do_magnet_guide:
+            name += "_magnet_guide"
+        debug(f"[yellow]Exporting Field {name} STL...[/yellow]")
         
         if not  P.export_folder.exists():
             P.export_folder.mkdir(parents=True, exist_ok=True)
@@ -380,8 +406,9 @@ class Field4by4:
         # Export using build123d's Mesher
         mesher = Mesher()
         mesher.add_shape(self.part)
-        mesher.write( P.export_folder / "tak_field_4x4.stl" )
-        debug(f"Field model exported as {P.export_folder / 'tak_field_4x4.stl'}")
+
+        mesher.write( P.export_folder / f"{name}.stl" )
+        debug(f"Field model exported as {P.export_folder / f'{name}.stl'}")
         return self
 
 # %% [Setup]
@@ -393,14 +420,23 @@ if P.do_show:
     try:
         from ocp_vscode import show, set_port
         set_port(3939)
+        FP = FieldParameters(P)
         M1 = TakStone(P)
         M1.params.do_corner_stone = yes 
-        corner_stone = M1.build().part.move(Location((P.field_xy, 0, 0)))
+        corner_stone = M1.build().part.move(Location((FP.field_xy, 0, 0)))
         M1.params.do_corner_stone = no
-        stone_model = M1.build().part.move(Location((P.field_xy, P.field_xy, 0)))
-        M2 = Field4by4(P)
-        field_4x4 = M2.build().part.move(Location((0, 0, -10)))
-        show(field_4x4, corner_stone, stone_model, names=["field_4x4","corner_stone", "stone_model"])
+        stone_model = M1.build().part.move(Location((FP.field_xy, FP.field_xy, 0)))
+        
+        # TODO: play with field parameters to test 
+        # NEW: field extensions with 5x1, 4x1
+        FP.do_outer_cuts = yes
+        FP.do_magnet_guide = yes
+        FP.fields_x = 1
+        FP.fields_y = 4
+        M2 = Field(FP)
+        field = M2.build().part.move(Location((0, 0, -10)))
+        size = f'{M2.params.fields}x{M2.params.fields}'
+        show(field, corner_stone, stone_model, names=[f"field_{size}","corner_stone", "stone_model"], colors=["#EEEE00aa", "#FFFFFFee", "#000000ee"])
     except ImportError:
         print("ocp_vscode.show not available. Model built but not displayed.")
 
