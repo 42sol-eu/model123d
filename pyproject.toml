@@ -22,6 +22,12 @@ packages = [{include = "model123d", from = "src"}]
 [tool.poetry.group.dev.dependencies]
 black = "^25.1.0"
 
+[tool.poetry.group.docs.dependencies]
+mkdocs = "^1.6.0"
+mkdocs-material = "^9.5.0"
+mkdocstrings = "^0.24.0"
+mkdocstrings-python = "^1.8.0"
+
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"

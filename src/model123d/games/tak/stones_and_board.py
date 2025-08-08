@@ -230,23 +230,24 @@ class TakStone:
         
         # Export using build123d's Mesher
         mesher = Mesher()
-        # set type based on inset and rotate part based on inset
+        export_part = self.part
+        # set type_str based on inset and rotate part based on inset
         if P.do_inset_b and P.do_inset_t    :
-            type = "_inset_both" 
+            type_str = "_inset_both" 
             if P.stack_height == 1:
                 export_part = self.part.rotate(Axis.X, 90)
 
         elif P.do_inset_t:
-            type = "_inset_top"
+            type_str = "_inset_top"
             if P.stack_height == 1:
                 export_part = self.part.rotate(Axis.X, 0)
 
         elif P.do_inset_b:
-            type = "_inset_bottom"
+            type_str = "_inset_bottom"
             if P.stack_height == 1:
                 export_part = self.part.rotate(Axis.X, 180)
         else:
-            type = "_plain"
+            type_str = "_plain"
             if P.stack_height == 1:
                 export_part = self.part.rotate(Axis.X, 90)
 
@@ -254,14 +255,14 @@ class TakStone:
             pass
         
         if P.do_rounded:
-            type += "_rounded"
+            type_str += "_rounded"
         if P.do_corner_stone:
-            type += "_corner"
+            type_str += "_corner"
 
         mesher.add_shape(export_part)
         
-        mesher.write( P.export_folder/ f"tak_stone{type}.stl" )
-        debug(f"Model exported as {P.export_folder / f'tak_stone{type}.stl'}")
+        mesher.write( P.export_folder/ f"tak_stone{type_str}.stl" )
+        debug(f"Model exported as {P.export_folder / f'tak_stone{type_str}.stl'}")
         return self
             
 
@@ -293,6 +294,17 @@ class Field4by4:
                 Box(4*length+12, 4*length+12, P.field_height)
                 Box(4*length+2, 4*length+2, P.field_height, mode=Mode.SUBTRACT)
             add(frame, mode=Mode.SUBTRACT)
+
+            with GridLocations(4*length+3, 4*length+3, 2,2):
+                Box( 8, 8, 2*P.field_height, rotation=(0,0,45.), mode=Mode.SUBTRACT)
+
+            with GridLocations(4*length+3, 4*length+3, 1, 2):
+                with GridLocations(length, length, 3,1):
+                    Box( 6, 6, 2*P.field_height, rotation=(0,0,45.), mode=Mode.SUBTRACT)
+
+            with GridLocations(4*length+3, 4*length+3, 2, 1):
+                with GridLocations(length, length, 1,3):
+                    Box( 6, 6, 2*P.field_height, rotation=(0,0,45.), mode=Mode.SUBTRACT)
             
             # Add magnet openings (5mm diameter, 2mm deep) at the center of each field cell
             magnet_diameter = 5 * mm
@@ -311,11 +323,13 @@ class Field4by4:
                 with Locations((-magnet_offset, y, magnet_slot_z)):
                     Cylinder(radius=magnet_diameter / 2, height=magnet_depth, rotation=(0, 90., 0), mode=magnet_modes)
                     Box(magnet_diameter/2, magnet_diameter, magnet_depth, rotation=(0, 90., 0), mode=magnet_modes, align=(Align.MAX, Align.CENTER, Align.CENTER))
+                    
                 # Right side (X+)
                 with Locations((magnet_offset, y, magnet_slot_z)):
                     Cylinder(radius=magnet_diameter / 2, height=magnet_depth, rotation=(0, 90., 0), mode=magnet_modes)
                     Box(magnet_diameter/2, magnet_diameter, magnet_depth, rotation=(0, 90., 0), mode=magnet_modes, align=(Align.MAX, Align.CENTER, Align.CENTER))
-
+                    
+                    
             # Top and bottom sides (X varies, Y fixed)
             for i in range(4):
                 x = -1.5 * length + i * length
@@ -327,6 +341,30 @@ class Field4by4:
                 with Locations((x, magnet_offset, magnet_slot_z)):
                     Cylinder(radius=magnet_diameter / 2, height=magnet_depth, rotation=(90., 0, 0), mode=magnet_modes)
                     Box(magnet_diameter/2, magnet_depth, magnet_diameter, rotation=(0, 90., 0), mode=magnet_modes, align=(Align.MAX, Align.CENTER, Align.CENTER))
+
+            # Add a triangle on top of each field cell
+            triangle_height = P.field_height * 0.08
+            triangle_base = 1.
+            triangle_offset_z = P.field_height * 0.34
+
+            with BuildSketch(Plane.XY.offset(triangle_offset_z)) as tri_sketch:
+                with GridLocations(4*length+3, 4*length-5, 1, 2):
+                    with GridLocations(length, length, 4,1):
+                        Triangle(   a=triangle_base, b=triangle_base+1, c=triangle_base+1,
+                                    rotation=0.0)
+
+            extrude(tri_sketch.sketch, amount=triangle_height, mode=Mode.SUBTRACT)
+
+            with BuildSketch(Plane.XY.offset(triangle_offset_z)) as tri_sketch:
+
+                with GridLocations(4*length-5, 4*length+3, 2, 1):
+                    with GridLocations(length, length, 1,4):
+                        Triangle(   a=triangle_base, b=triangle_base+1, c=triangle_base+1,
+                                    rotation=90.0)
+
+            extrude(tri_sketch.sketch, amount=triangle_height, mode=Mode.SUBTRACT)
+
+
 
         self.part = field.part
         return self 
