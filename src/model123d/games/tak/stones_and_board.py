@@ -281,12 +281,26 @@ class Field:
 
     def __init__(self, params: FieldParameters = FieldParameters()):
         self.params = params
+        self._name = 'Tak_field_unspecified'
         
+    @property
+    def name(self) -> str:
+        """Return the name of the field."""
+        return self._name 
+        
+    def _do_name(self) -> str:
+        """Generate a name for the field based on parameters."""
+        name = f"tak_field_{self.params.fields_x}x{self.params.fields_y}"
+        if self.params.do_outer_cuts:
+            name += "_outer_cuts"
+        if self.params.do_magnet_guide:
+            name += "_magnet_guide"
+        self._name = name
 
-    
     def build(self) -> BuildPart:
         P = self.params
-        debug(f"[bold green]Building Field4by4 with parameters:[/bold green] {self.params}")
+        self._do_name()
+        debug(f"[bold green]Building {self.name} with parameters:[/bold green] {self.params}")
         length = P.field_xy
         full_length_x = P.fields_x *  P.field_xy
         full_length_y = P.fields_y *  P.field_xy
@@ -383,21 +397,21 @@ class Field:
                             Triangle(   a=triangle_base, b=triangle_base+1, c=triangle_base+1,
                                         rotation=90.0)
 
-                extrude(tri_sketch.sketch, amount=triangle_height, mode=Mode.SUBTRACT)
+                extrude(tri_sketch.sketch, amount=triangle_height, both=yes, mode=Mode.SUBTRACT)
 
-
+            # add a creators text "Created by 42sol.eu" on the bottom face using "Herculanum" 16mm height
+            with BuildSketch():
+                with Locations((0, 0, -P.field_height/2)):
+                    Text("Created by 42sol.eu", font_size=16.0, font="Herculanum")
+            extrude(amount=0.1, mode=Mode.SUBTRACT)
 
         self.part = field.part
         return self 
     
     def export(self) -> BuildPart:
         P = self.params
-        name = f"tak_field_{P.fields_x}x{P.fields_y}"
-        if P.do_outer_cuts:
-            name += "_outer_cuts"
-        if P.do_magnet_guide:
-            name += "_magnet_guide"
-        debug(f"[yellow]Exporting Field {name} STL...[/yellow]")
+
+        debug(f"[yellow]Exporting Field {self._name} STL...[/yellow]")
         
         if not  P.export_folder.exists():
             P.export_folder.mkdir(parents=True, exist_ok=True)
@@ -407,8 +421,8 @@ class Field:
         mesher = Mesher()
         mesher.add_shape(self.part)
 
-        mesher.write( P.export_folder / f"{name}.stl" )
-        debug(f"Field model exported as {P.export_folder / f'{name}.stl'}")
+        mesher.write( P.export_folder / f"{self._name}.stl" )
+        debug(f"Field model exported as {P.export_folder / f'{self._name}.stl'}")
         return self
 
 # %% [Setup]
@@ -428,15 +442,43 @@ if P.do_show:
         stone_model = M1.build().part.move(Location((FP.field_xy, FP.field_xy, 0)))
         
         # TODO: play with field parameters to test 
+        # MAYBE: Improve positioning of magnet guides (integrate magnet guide into slot cut)
         # NEW: field extensions with 5x1, 4x1
         FP.do_outer_cuts = yes
         FP.do_magnet_guide = yes
-        FP.fields_x = 1
-        FP.fields_y = 4
-        M2 = Field(FP)
-        field = M2.build().part.move(Location((0, 0, -10)))
-        size = f'{M2.params.fields}x{M2.params.fields}'
-        show(field, corner_stone, stone_model, names=[f"field_{size}","corner_stone", "stone_model"], colors=["#EEEE00aa", "#FFFFFFee", "#000000ee"])
+        
+        objects = [corner_stone, stone_model]
+        names = ["corner_stone", "stone_model"]
+        colors = ["#000000ff", "#FFFFFFff"]
+
+        if True:
+            for i in range(4, 9):
+                FP.fields_x = 1
+                FP.fields_y = i
+                M2 = Field(FP)
+                field = M2.build().part.move(Location(((i-3)*FP.field_xy*2, 0, -20)))
+                objects.append(field)
+                names.append(M2.name)
+                colors.append("#EEEE00ff")
+                
+                FP.fields_x = i
+                FP.fields_y = i
+                M2 = Field(FP)
+                field = M2.build().part.move(Location(((i-3)*FP.field_xy*2 + FP.field_xy*2, 0, -20*i)))
+                objects.append(field)
+                names.append(M2.name)
+                colors.append("#EEEE00ff")
+        else:
+            FP.fields_x = 4
+            FP.fields_y = 4
+            M2 = Field(FP)
+            M2.build()
+            field = M2.part.move(Location((0, 0, -10)))
+            objects.append(field)
+            names.append(M2.name)
+            colors.append("#EEEE00aa")
+
+        show(*objects, names=names, colors=colors)
     except ImportError:
         print("ocp_vscode.show not available. Model built but not displayed.")
 
@@ -444,10 +486,13 @@ if P.do_show:
 if P.do_export:
     debug("Exporting model")
     try:
+        print("Exporting Tak stone model...")
         M1.params.do_corner_stone = yes
         M1.export()
+        print("Exporting Tak field model...")
         M1.params.do_corner_stone = no
         M1.export()
+        print("Exporting Tak field with parameters...")
         M2.export()
     except Exception as e:
         print(f"Export failed: {e}")
