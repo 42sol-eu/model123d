@@ -35,7 +35,7 @@ class Parameters:
     """Parameters for the stones.py"""
     show_debug:    bool =    yes
     do_show:       bool =    yes
-    do_export:     bool =    yes
+    do_export:     bool =    no
     export_folder: Path = file_path() / "_export"
     
     def __init__(self):
@@ -63,29 +63,102 @@ class StoneParameters(Parameters):
 @dataclass
 class FieldParameters(StoneParameters):
     """Parameters for the Tak game board fields."""
-    fields:            int    = 4
-    fields_x:          int    = 4
-    fields_y:          int    = 1
-    field_xy:          float   = 32.0 * mm
-    field_height:      float   =  6.0 * mm
-    do_outer_cuts:    bool = yes
-    do_magnet_guide:  bool = yes
-    debug_magnets:    bool = no
+    fields:            int     = 4
+    fields_x:          int     = 4
+    fields_y:          int     = 1
+    field_xy:          float    = 32.0 * mm
+    field_height:      float    =  6.0 * mm
+    nozzle_diameter:  float    =  0.8 * mm
+    min_fields:         int     = 8
+    max_fields:         int     = 8
+    do_outer_cuts:    bool    = yes
+    do_magnet_guide:  bool    = yes
+    debug_magnets:    bool    = no
+    
+    def __init__(self, stone_params: StoneParameters = StoneParameters()):
+        """Initialize field parameters based on stone parameters."""
+        debug("Initializing field parameters")
+        super().__init__()
+        # Use stone parameters to set field dimensions
+        if self.nozzle_diameter >= 0.8 * mm:
+            self.field_height = self.field_height / 0.4 * 0.8 
+        self.height = stone_params.height
+        self.width  = stone_params.width
+        self.depth  = stone_params.depth
+        self.bevel  = stone_params.bevel
+
+
+class MagnetSlots:
+    """Parameters for the magnet slots in the Tak game board."""
+    diameter: float = 5.0 * mm
+    depth: float = 1.5 * mm
+    offset_x: float = 0.8 * mm
+    offset_y: float = 0.8 * mm
+    z: float = 0.0
+
+    def __init__(self, nozzle_size: float = 0.8 * mm, layer_height: float = 0.4 * mm):
+        """Initialize magnet slot parameters.
+        - includes its own parameters.
+        """
+        debug("Initializing magnet slot parameters")
+        self.nozzle_size = nozzle_size
+        self.layer_height = layer_height
+        if self.nozzle_size >= 0.8 * mm:
+            self.addon = 0.8 * mm
+        else:
+            self.addon = 0.4 * mm
+
+    def build(self, position: Location = Location((0, 0, 0)), rotation: RotationLike = (0, 0, 0), do_marker: bool = False) -> BuildPart:
+        """Build the magnet slots based on parameters."""
+        debug("Building magnet slots")
+
+        with BuildPart(position) as slots:
+            # Create a cylinder for the magnet slot
+            Cylinder(radius=(self.diameter+self.addon) / 2, height=self.depth)
+            # Create a box for the magnet slot
+            Box(self.diameter / 2 + self.addon, self.diameter+self.addon, self.depth-0.1, align=(Align.MAX, Align.CENTER, Align.CENTER))
+
+            if do_marker:
+                # orientation guide
+                Box(self.diameter/2+self.addon, 2*self.addon, 1.6*self.depth+self.addon-0.2, align=(Align.MAX, Align.CENTER, Align.MAX))
+
+        slots.part = slots.part.rotate(Axis.X, rotation[0])
+        slots.part = slots.part.rotate(Axis.Y, rotation[1])
+        slots.part = slots.part.rotate(Axis.Z, rotation[2])
+
+        return slots.part
+
 
 # %% [Tak Stone Model]
 class TakStone:
-    """3D model for a Tak stone using build123d."""
+    """3D model for a Tak stone using build123d.
+    """
 
     def __init__(self, params: StoneParameters = StoneParameters()):
         self.params = params
+        self._part = None
+        self._name = 'Tak_stone_unspecified'
 
+    @property
+    def name(self) -> str:
+        """Return the name of the stone."""
+        return self._name
+
+    @property
+    def part(self) -> Part:
+        """Return the part of the stone."""
+        if self._part is None:
+            raise ValueError("Stone part not built yet. Call build() first.")
+        return self._part
 
     def build(self) -> BuildPart:
+        """Build the Tak stone model based on parameters.
+        """
         P = self.params
         debug(f"[bold green]Building TakStone with parameters:[/bold green] {self.params}")
-        
+
         with BuildPart() as stone:
-            
+
             if P.do_rounded:
                 with BuildSketch() as sketch:
                     P = self.params
@@ -105,9 +178,9 @@ class TakStone:
                 debug(f"Applying fillet with radius {P.bevel} mm")
                 # Apply fillet to edges
                 fillet(stone.edges(), radius=P.bevel)
-                
+
             faces = stone.faces().filter_by(Axis.Z, 0)
-                
+
             if P.do_inset_b:
                 debug("Applying inset for stone decoration")
                 # Create an inset for decoration
@@ -123,18 +196,17 @@ class TakStone:
                 corner_part = self._create_corner_stone(faces[-1])
                 add(corner_part, mode=Mode.ADD)
 
-        self.part = stone.part
-        
+        self._part = stone.part
+
         return self
 
     def _create_corner_stone(self, face: Face) -> BuildPart:
-        """
-        Create a corner stone by applying a rounded rectangle inset.
+        """Create a corner stone by applying a rounded rectangle inset.
         """
         P = self.params
         width = 0.8 * min(P.height, P.width)/2
         height = 2.0 * width
-        
+
         pts = [
             (-0.5*width, height),
             (-0.7*width, 0.90*height),
@@ -222,48 +294,50 @@ class TakStone:
                 Box(P.height - mod_b * P.bevel - modifier_xy, 
                     P.width  - mod_b * P.bevel - modifier_xy, 
                     P.bevel * mod_b            + modifier_z)
-                
+
             if P.do_chamfer:
                 chamfer(inset.edges(), length=P.bevel)
             else:
                 fillet(inset.edges(), radius=P.bevel)
         return inset.part
-        
-    
-    def export(self) -> BuildPart:        
+
+
+    def export(self) -> BuildPart:
+        """Export the Tak stone model as an STL file.
+        """        
         P = self.params
         debug("[yellow]Exporting STL...[/yellow]")
-        
+
         if not  P.export_folder.exists():
             P.export_folder.mkdir(parents=True, exist_ok=True)
             debug(f"Created export folder: {P.export_folder}")
-        
+
         # Export using build123d's Mesher
         mesher = Mesher()
-        export_part = self.part
+        export_part = self._part
         # set type_str based on inset and rotate part based on inset
         if P.do_inset_b and P.do_inset_t    :
             type_str = "_inset_both" 
             if P.stack_height == 1:
-                export_part = self.part.rotate(Axis.X, 90)
+                export_part = self._part.rotate(Axis.X, 90)
 
         elif P.do_inset_t:
             type_str = "_inset_top"
             if P.stack_height == 1:
-                export_part = self.part.rotate(Axis.X, 0)
+                export_part = self._part.rotate(Axis.X, 0)
 
         elif P.do_inset_b:
             type_str = "_inset_bottom"
             if P.stack_height == 1:
-                export_part = self.part.rotate(Axis.X, 180)
+                export_part = self._part.rotate(Axis.X, 180)
         else:
             type_str = "_plain"
             if P.stack_height == 1:
-                export_part = self.part.rotate(Axis.X, 90)
+                export_part = self._part.rotate(Axis.X, 90)
 
         if P.stack_height > 1:
             pass
-        
+
         if P.do_rounded:
             type_str += "_rounded"
         if P.do_corner_stone:
@@ -282,12 +356,19 @@ class Field:
     def __init__(self, params: FieldParameters = FieldParameters()):
         self.params = params
         self._name = 'Tak_field_unspecified'
-        
+
     @property
     def name(self) -> str:
         """Return the name of the field."""
-        return self._name 
-        
+        return self._name
+    
+    @property
+    def part(self) -> Part:
+        """Return the part of the field."""
+        if self._part is None:
+            raise ValueError("Field part not built yet. Call build() first.")
+        return self._part
+
     def _do_name(self) -> str:
         """Generate a name for the field based on parameters."""
         name = f"tak_field_{self.params.fields_x}x{self.params.fields_y}"
@@ -296,6 +377,7 @@ class Field:
         if self.params.do_magnet_guide:
             name += "_magnet_guide"
         self._name = name
+        self._part = None
 
     def build(self) -> BuildPart:
         P = self.params
@@ -306,7 +388,7 @@ class Field:
         full_length_y = P.fields_y *  P.field_xy
         with BuildPart() as field:
             Box(full_length_x+2, full_length_y+2, P.field_height)
-            
+
             with Locations((0, 0, P.field_height/2)):
                 with GridLocations(length, length, P.fields_x, P.fields_y):
                     Box(length-2, length-2, P.field_height*0.4, mode=Mode.ADD)
@@ -314,7 +396,7 @@ class Field:
                     Box( 8, 8, P.field_height, rotation=(0,0,45.),mode=Mode.SUBTRACT)
             with GridLocations(length, length, P.fields_x+1, P.fields_y+1):
                 Box( 8, 8, P.field_height, rotation=(0,0,45.))
-            
+
             # Cut the outer edges to make spacers flat
             with BuildPart() as frame:
                 Box(full_length_x+12, full_length_y+12, P.field_height)
@@ -403,11 +485,11 @@ class Field:
             with BuildSketch():
                 with Locations((0, 0, -P.field_height/2)):
                     Text("Created by 42sol.eu", font_size=16.0, font="Herculanum")
-            extrude(amount=0.1, mode=Mode.SUBTRACT)
+            extrude(amount=10.2, mode=Mode.SUBTRACT)
 
-        self.part = field.part
-        return self 
-    
+        self._part = field.part
+        return self
+
     def export(self) -> BuildPart:
         P = self.params
 
@@ -419,7 +501,7 @@ class Field:
         
         # Export using build123d's Mesher
         mesher = Mesher()
-        mesher.add_shape(self.part)
+        mesher.add_shape(self._part)
 
         mesher.write( P.export_folder / f"{self._name}.stl" )
         debug(f"Field model exported as {P.export_folder / f'{self._name}.stl'}")
@@ -430,7 +512,27 @@ debug("Creating Tak stone model")
 P = StoneParameters()
 
 # %% [Display]
-if P.do_show:
+if True:
+    from ocp_vscode import show, set_port
+    set_port(3939)
+    FP = FieldParameters(P)
+    with BuildPart() as magnet_test:
+        Box(30, 30, 20)
+        add(MagnetSlots(nozzle_size=.8, layer_height=.4).build(position=Location((-3, 0, 3-1.5*FP.nozzle_diameter)), do_marker=True), mode=Mode.SUBTRACT)
+        add(MagnetSlots(nozzle_size=.8, layer_height=.4).build(position=Location((-3, 6, 3-1.5*FP.nozzle_diameter)),  rotation=(180,  0,  0), do_marker=True), mode=Mode.SUBTRACT)
+        #add(MagnetSlots(nozzle_size=.8, layer_height=.4).build(position=Location((-3, 0, 3-1.5*FP.nozzle_diameter)),  rotation=( 0,  90, 0), do_marker=True), mode=Mode.SUBTRACT)
+        #add(MagnetSlots(nozzle_size=.8, layer_height=.4).build(position=Location((-3, 0, 3-1.5*FP.nozzle_diameter)),  rotation=( 0, 180, 0), do_marker=True), mode=Mode.SUBTRACT)
+        #add(MagnetSlots(nozzle_size=.8, layer_height=.4).build(position=Location((-3, 10, 3-1.5*FP.nozzle_diameter)), rotation=(0, 0, 180), do_marker=True), mode=Mode.SUBTRACT)
+        #add(MagnetSlots(nozzle_size=.8, layer_height=.4).build(position=Location((-3, 10, 3-1.5*FP.nozzle_diameter)), rotation=(0, 180, 0), do_marker=True), mode=Mode.SUBTRACT)
+
+    show(magnet_test.part, names=["Magnet Test"], colors=["#1f4fefee"])
+    # export magnet_test.part as stl
+    m = Mesher()
+    m.add_shape(magnet_test.part)
+    m.write(P.export_folder / "magnet_test.stl")
+
+
+if P.do_show and False:
     try:
         from ocp_vscode import show, set_port
         set_port(3939)
@@ -440,19 +542,19 @@ if P.do_show:
         corner_stone = M1.build().part.move(Location((FP.field_xy, 0, 0)))
         M1.params.do_corner_stone = no
         stone_model = M1.build().part.move(Location((FP.field_xy, FP.field_xy, 0)))
-        
+
         # TODO: play with field parameters to test 
         # MAYBE: Improve positioning of magnet guides (integrate magnet guide into slot cut)
         # NEW: field extensions with 5x1, 4x1
         FP.do_outer_cuts = yes
         FP.do_magnet_guide = yes
-        
+
         objects = [corner_stone, stone_model]
         names = ["corner_stone", "stone_model"]
         colors = ["#000000ff", "#FFFFFFff"]
 
         if True:
-            for i in range(4, 9):
+            for i in range(FP.min_fields, FP.max_fields+1):
                 FP.fields_x = 1
                 FP.fields_y = i
                 M2 = Field(FP)
@@ -460,7 +562,7 @@ if P.do_show:
                 objects.append(field)
                 names.append(M2.name)
                 colors.append("#EEEE00ff")
-                
+
                 FP.fields_x = i
                 FP.fields_y = i
                 M2 = Field(FP)
