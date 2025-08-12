@@ -23,64 +23,15 @@ project:
 from build123d import *
 from ocp_vscode import show, set_defaults, set_port, Camera
 from ocp_vscode.colors import ColorMap
-from dataclasses import dataclass, fields
 from rich import print
-from pathlib import Path
-from dataclasses import dataclass
-from typing import Any
 from math import radians, cos, sin
 
-# %% [Constants]
-no = False 
-yes = True
-mm = 1
-
-# %% [Functions]
-def debug(msg):
-    """Print debug message if show_debug is True"""
-    if Parameters.show_debug:
-        print(f"[blue]DEBUG: {msg}[/blue]")
-
-def file_path():
-    """Return the path to the current file"""
-    return Path(__file__).parent.resolve()
-
-# %% [Parameters]
-@dataclass
-class Parameters:
-    """Parameters for the procedural tree trunk"""
-    show_debug:    bool =    yes
-    do_show:       bool =    yes
-    do_export:     bool =    no
-    
-    do_fillet:      bool =    yes
-    export_folder: Path = file_path() / "_export"
-
-    def __init__(self) -> Any:
-        debug("Initializing core parameters")
-        
-    def __str__(self):
-        """String representation of the parameters"""
-        data = f"Parameters:\n"
-        for field in fields(self):
-            value = getattr(self, field.name)
-            data += f"  {field.name}: {value}\n"
-        return data
-
-@dataclass
-class ClipParameters(Parameters):
-    """Parameters for the clip geometry."""
-    length:         float = 20.0 * mm
-    width_inner:    float =  6.0 * mm
-    height_inner:   float =  4.0 * mm
-    thickness:      float =  2.0 * mm
-    fillet_radius:   float =  0.2 * mm
-
-    def __init__(self) -> Any:
-        super().__init__()
-        debug("Initializing clip parameters")
-
-
+# Import parameters and constants from separate module
+try:
+    from .parameters import ClipParameters, debug, no, yes, mm
+except ImportError:
+    # Fallback for running the script directly
+    from parameters import ClipParameters, debug, no, yes, mm
 
 # %% [Model]
 class Clip:
@@ -112,36 +63,38 @@ class Clip:
             with BuildSketch() as sketch:
                 Circle(radius=(P.width_inner + P.thickness) / 2)
                 Circle(radius=P.width_inner / 2, mode=Mode.SUBTRACT)
-                Rectangle(width=2*P.thickness, height=2*P.width_inner, mode=Mode.SUBTRACT, align=(Align.CENTER, Align.MIN))
+                Rectangle(width=P.height_inner*0.8, height=2*P.width_inner, mode=Mode.SUBTRACT, align=(Align.CENTER, Align.MIN))
             extrude(amount=P.height_inner/2, both=yes)
             
-            if P.do_fillet: 
-                fillet(_model.part.edges(), radius=P.fillet_radius)
-
             text_height = P.height_inner * 0.6
 
             # Create cut-out text in the center of the ring
-            with BuildSketch(-Plane.ZX.offset(-(P.height_inner+P.thickness*1.8)/2)) as text_sketch:
+            with BuildSketch(-Plane.ZX.offset(-(P.height_inner+P.thickness+0.5)/2)) as text_sketch:
                 
                 Rectangle(
-                    width=1.2*text_height,
-                    height=1.2*text_height,
+                    width=1.5*P.height_inner,
+                    height=3.0*text_height,
                     align=(Align.CENTER, Align.CENTER)
                 )
             extrude(text_sketch.sketch, amount=P.thickness, mode=Mode.SUBTRACT)
 
-            # Create cut-out text in the center of the ring
-            with BuildSketch(-Plane.ZX.offset(-(P.height_inner+0.85*P.thickness)/2)) as text_sketch:
-                text_str = "12"
-                
-                Text(
-                    text_str,
-                    font_size=text_height,
-                    font="Arial",
-                    align=(Align.CENTER, Align.CENTER)
-                )
-            a = extrude(text_sketch.sketch, amount=P.thickness*0.55, mode=Mode.ADD)
-            fillet(a.edges(), radius=P.fillet_radius/10.0)
+            if P.do_fillet: 
+                fillet(_model.part.edges(), radius=P.fillet_radius)
+
+            if P.do_text:
+                # Create cut-out text in the center of the ring
+                with BuildSketch(-Plane.ZX.offset(-(P.height_inner+0.85*P.thickness)/2)) as text_sketch:
+                    text_str = "A"
+                    
+                    Text(
+                        text_str,
+                        font_size=text_height,
+                        font="Arial",
+                        align=(Align.CENTER, Align.CENTER)
+                    )
+                a = extrude(text_sketch.sketch, amount=1.5, mode=Mode.ADD)
+                if P.do_fillet:
+                    fillet(a.edges(), radius=P.fillet_radius/10.0)
 
         self.part = _model.part
         return self
@@ -149,7 +102,7 @@ class Clip:
     def export(self) -> "Clip":
         """Export the part to STL"""
         P = self.params
-        export_path = P.export_folder / "clip.stl"
+        export_path = P.export_folder / f"clip{P.name()}.stl"
         debug(f"[green]Model exported to {export_path}[/green]")
         # Use Mesher to export all rings
         exporter = Mesher()
