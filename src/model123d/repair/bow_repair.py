@@ -27,7 +27,7 @@ Usage:
 ----
 file-name:       bow_repair.py
 file-uuid:       8e10ec12-af68-4871-8579-8185f95df489
-description:    3D models for Tak game stones using build123d
+description:    3D models for bow repair using build123d
 author:         felix@42sol.eu
 project:
     name:       model123d
@@ -69,7 +69,7 @@ class Parameters:
     def __init__(self):
         debug("Initializing core parameters")
 
-# %% [Stone Parameters]
+# %% [Parameters]
 @dataclass
 class BowParameters(Parameters):
     material:      str = "PLA_wood"
