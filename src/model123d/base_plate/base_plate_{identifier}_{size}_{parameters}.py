@@ -10,14 +10,14 @@ yes, no = True, False
 @dataclass
 class P:
     """Parameters for the Base Plate model."""
-    do_export: bool = yes
-    do_pattern : bool = no # NOT implemented yet
-    do_magnet: bool = yes
-    size: float = 42.0 * mm
-    thickness: float = 4.5 * mm
+    do_export:       bool = yes
+    do_pattern :     bool = no # NOT implemented yet
+    do_magnet:       bool = yes
+    size:            float = 32.0 * mm
+    thickness:       float= 3.0 * mm
     magnet_diameter: float = 10.0 * mm
-    magnet_height: float = 3.0 * mm
-    type : str = "Circular"  # Type of hole pattern: Hexagonal, Circular
+    magnet_height:   float = 3.0 * mm
+    type : str = "Hexagonal"  # Type of hole pattern: Hexagonal, Circular
 
 with BuildPart() as base_plate:
     with BuildSketch() as sketch:
