@@ -107,94 +107,31 @@ class SpoolHolder:
             console.print(f"[red]ERROR: Click file not found: {click_file}[/red]")
             self.click_solid = None
     
-    def build_spindle(self) -> BuildPart:
-        """Build the spindle that the spool rotates on"""
+    def build_mounting_plate(self) -> BuildPart:
+        """Build the base mounting plate that holds the pegs and attaches to click connectors"""
         p = self.params
-        debug("Building spindle assembly...")
+        debug("Building mounting plate...")
         
-        with BuildPart() as spindle_assy:
-            # Main spindle rod
-            with BuildPart() as spindle:
-                Cylinder(
-                    radius=p.spindle_diameter / 2,
-                    height=p.spindle_length,
-                    align=(Align.CENTER, Align.CENTER, Align.MIN)
-                )
+        with BuildPart() as plate:
+            # Main mounting plate
+            Box(
+                length=150 * mm,
+                width=100 * mm,
+                height=10 * mm,
+                align=(Align.CENTER, Align.CENTER, Align.MIN)
+            )
             
-            # Bearing/washer on each side to keep spool centered
-            with BuildPart(mode=Mode.ADD) as bearings:
-                # Left washer
-                with Locations((0, 0, -p.bearing_thickness)):
-                    Cylinder(
-                        radius=p.bearing_diameter / 2,
-                        height=p.bearing_thickness,
-                        align=(Align.CENTER, Align.CENTER, Align.MIN)
-                    )
-                # Right washer
-                with Locations((0, 0, p.spindle_length)):
-                    Cylinder(
-                        radius=p.bearing_diameter / 2,
-                        height=p.bearing_thickness,
-                        align=(Align.CENTER, Align.CENTER, Align.MIN)
-                    )
-            
-            # Add chamfers for easier spool insertion
-            if p.do_fillet:
-                chamfer(spindle_assy.edges().filter_by(Axis.Z).group_by(Axis.Z)[-1], 
-                       length=p.fillet_radius)
-        
-        return spindle_assy
-    
-    def build_support_arm(self) -> BuildPart:
-        """Build the arm connecting the peg to the spindle"""
-        p = self.params
-        debug("Building support arm...")
-        
-        with BuildPart() as arm:
-            # Main arm body - horizontal beam
-            with BuildPart():
-                Box(
-                    length=p.arm_length,
-                    width=p.arm_width,
-                    height=p.arm_thickness,
-                    align=(Align.MIN, Align.CENTER, Align.CENTER)
-                )
-            
-            # Mounting plate at peg end
-            with BuildPart(mode=Mode.ADD):
-                with Locations((0, 0, 0)):
-                    Box(
-                        length=20 * mm,
-                        width=p.arm_width + 10 * mm,
-                        height=p.arm_thickness + 10 * mm,
-                        align=(Align.MAX, Align.CENTER, Align.CENTER)
-                    )
-            
-            # Spindle mount at far end
-            with BuildPart(mode=Mode.ADD):
-                with Locations((p.arm_length, 0, 0)):
-                    Cylinder(
-                        radius=p.spindle_diameter / 2 + 10 * mm,
-                        height=p.arm_thickness + 10 * mm,
-                        align=(Align.CENTER, Align.CENTER, Align.CENTER),
-                        rotation=(90, 0, 0)
-                    )
-            
-            # Cutout for spindle
+            # Add mounting holes for click connectors (2 holes spaced apart)
             with BuildPart(mode=Mode.SUBTRACT):
-                with Locations((p.arm_length, 0, 0)):
+                # Two mounting holes for orange click connectors
+                with Locations([(-50 * mm, 0, 0), (50 * mm, 0, 0)]):
                     Cylinder(
-                        radius=p.spindle_diameter / 2 + p.spindle_clearance,
-                        height=p.arm_width + 20 * mm,
-                        align=(Align.CENTER, Align.CENTER, Align.CENTER),
-                        rotation=(90, 0, 0)
+                        radius=6 * mm,  # Hole for click connector
+                        height=15 * mm,
+                        align=(Align.CENTER, Align.CENTER, Align.MIN)
                     )
-            
-            # Add fillets for strength
-            if p.do_fillet:
-                fillet(arm.edges().filter_by(GeomType.CIRCLE), radius=p.fillet_radius)
         
-        return arm
+        return plate
     
     def build(self) -> list:
         """Build complete spool holder assembly"""
@@ -203,32 +140,29 @@ class SpoolHolder:
         
         parts = []
         
-        # Build main components
-        spindle = self.build_spindle()
-        define(spindle.part, "#3498db", "Spindle")
-        parts.append(spindle.part)
+        # Build the mounting plate
+        plate = self.build_mounting_plate()
+        define(plate.part, "#cccccc", "Mounting Plate")
+        parts.append(plate.part)
         
-        support_arm = self.build_support_arm()
-        define(support_arm.part, "#e74c3c", "Support Arm")
-        parts.append(support_arm.part)
-        
-        # Position spindle on arm
-        spindle_positioned = spindle.part.rotate(Axis.X, 90).translate((p.arm_length, 0, p.spindle_length / 2))
-        
-        # Add multiboard peg connectors
+        # Add multiboard pegs pointing upward on the plate
         if self.peg_mesh:
-            # Position pegs at mounting end
-            peg1 = self.peg_mesh.translate((0, -p.peg_spacing / 2, 0))
-            peg2 = self.peg_mesh.translate((0, p.peg_spacing / 2, 0))
+            # Position two pegs upward on the plate
+            # Rotate pegs to point up (Z direction) and place on plate surface
+            peg1 = self.peg_mesh.rotate(Axis.Y, 90).translate((-25 * mm, 0, 10 * mm))
+            peg2 = self.peg_mesh.rotate(Axis.Y, 90).translate((25 * mm, 0, 10 * mm))
             define(peg1, "#95a5a6", "Peg 1")
             define(peg2, "#95a5a6", "Peg 2")
             parts.extend([peg1, peg2])
         
-        # Add click connector if available
+        # Add click connectors for mounting (orange)
         if self.click_solid:
-            click_positioned = self.click_solid.translate((0, 0, -20 * mm))
-            define(click_positioned, "#f39c12", "Click Connector")
-            parts.append(click_positioned)
+            # Two click connectors positioned at the mounting holes
+            click1 = self.click_solid.translate((-50 * mm, 0, -10 * mm))
+            click2 = self.click_solid.translate((50 * mm, 0, -10 * mm))
+            define(click1, "#f39c12", "Click 1")
+            define(click2, "#f39c12", "Click 2")
+            parts.extend([click1, click2])
         
         console.print(f"[green]✓ Built {len(parts)} components[/green]")
         return parts
@@ -248,18 +182,24 @@ if yes or __name__ == "__main__":
         output_dir = Path(__file__).parent / "_output"
         output_dir.mkdir(exist_ok=True)
         
-        for idx, part in enumerate(parts):
-            if hasattr(part, 'name') and part.name:
-                filename = f"spool_holder_{part.name.lower().replace(' ', '_')}.stl"
+        # Export only the parts we built (not imported STL/STEP)
+        export_parts = [p for p in parts if hasattr(p, 'wrapped') and p.wrapped is not None]
+        
+        for idx, part in enumerate(export_parts):
+            if hasattr(part, 'label') and part.label:
+                filename = f"spool_holder_{part.label.lower().replace(' ', '_')}.stl"
             else:
                 filename = f"spool_holder_part_{idx}.stl"
             
             export_path = output_dir / filename
             
-            exporter = Mesher()
-            exporter.add_shape(part)
-            exporter.write(export_path)
-            console.log(f"[green]✓ Exported: {export_path.name}[/green]")
-            del exporter
+            try:
+                exporter = Mesher()
+                exporter.add_shape(part)
+                exporter.write(export_path)
+                console.log(f"[green]✓ Exported: {export_path.name}[/green]")
+                del exporter
+            except Exception as e:
+                console.log(f"[yellow]⚠ Could not export {filename}: {e}[/yellow]")
 
 # [End of file]
