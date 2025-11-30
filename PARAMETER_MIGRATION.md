@@ -48,8 +48,10 @@ Enhanced the existing parameters with:
 1. **Install noah123d** as a dependency:
    ```toml
    # In pyproject.toml
-   [tool.poetry.dependencies]
-   noah123d = {git = "https://github.com/42sol-eu/noah123d.git"}
+   [project]
+   dependencies = [
+       "noah123d @ git+https://github.com/42sol-eu/noah123d.git",
+   ]
    ```
 
 2. **Update imports** in stampinup/parameters.py:

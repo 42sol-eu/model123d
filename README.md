@@ -15,16 +15,15 @@ All models are programmatically created using Python, making them easily customi
 
 ### Prerequisites
 
-- Python 3.12 or 3.13
-- Poetry (recommended) or pip
+- Python 3.12
+- uv (recommended) or pip
 
-### Using poetry (recommended)
+### Using uv (recommended)
 
 ```bash
 git clone https://github.com/42sol-eu/model123d.git
 cd model123d
-poetry install
-poetry shell
+uv sync
 ```
 
 ### Using pip

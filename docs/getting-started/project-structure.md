@@ -8,7 +8,7 @@ Understanding how Model123d is organized will help you navigate the codebase and
 model123d/
 ├── 📄 README.md                    # Project overview
 ├── 📄 pyproject.toml              # Python project configuration
-├── 📄 poetry.lock                 # Dependency lock file
+├── 📄 uv.lock                     # Dependency lock file
 ├── 📄 mkdocs.yml                  # Documentation configuration
 ├── 📁 docs/                       # Documentation source (this site!)
 ├── 📁 print/                      # Ready-to-print 3MF files

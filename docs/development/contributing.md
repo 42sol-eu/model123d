@@ -19,12 +19,11 @@ git remote add upstream https://github.com/42sol-eu/model123d.git
 
 ```bash
 # Install dependencies
-poetry install
-poetry shell
+uv sync
 
 # Verify installation
 cd src/model123d/examples/
-python show_objects_1.py
+uv run python show_objects_1.py
 ```
 
 ### 3. Create a Feature Branch
@@ -183,7 +182,7 @@ We use [Black](https://black.readthedocs.io/) for code formatting:
 
 ```bash
 # Format your code before committing
-poetry run black src/
+uv run black src/
 ```
 
 ### Documentation Style
@@ -279,7 +278,7 @@ def your_function(param1: str, param2: float = 1.0) -> bool:
 When reporting bugs, please include:
 
 1. **Python version** and operating system
-2. **build123d version** (`poetry show build123d`)
+2. **build123d version** (`uv pip list | grep build123d`)
 3. **Complete error message** and traceback
 4. **Steps to reproduce** the issue
 5. **Expected vs actual behavior**
@@ -300,7 +299,7 @@ We use these labels to categorize issues:
 
 1. **Update documentation** for any new features
 2. **Add tests** for new functionality
-3. **Run code formatter**: `poetry run black src/`
+3. **Run code formatter**: `uv run black src/`
 4. **Test thoroughly** with different parameters
 5. **Update CHANGELOG** if applicable
 

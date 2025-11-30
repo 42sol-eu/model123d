@@ -4,30 +4,30 @@ Get started with **Model123d** by setting up your development environment and in
 
 ## Prerequisites
 
-- **Python 3.12 or 3.13**
-- **Poetry** (recommended) or pip
+- **Python 3.12**
+- **uv** (recommended) or pip
 - **Git** for cloning the repository
 
 ## Installation Methods
 
-### Using Poetry (Recommended)
+### Using uv (Recommended)
 
-Poetry is the recommended way to manage dependencies and virtual environments for this project.
+uv is the recommended way to manage dependencies and virtual environments for this project.
 
 ```bash
+# Install uv if you haven't already
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
 # Clone the repository
 git clone https://github.com/42sol-eu/model123d.git
 cd model123d
 
 # Install dependencies and create virtual environment
-poetry install
-
-# Activate the virtual environment
-poetry shell
+uv sync
 ```
 
-!!! tip "Why Poetry?"
-    Poetry automatically manages virtual environments and dependency resolution, making it easier to maintain consistent development environments across different systems.
+!!! tip "Why uv?"
+    uv is an extremely fast Python package and project manager written in Rust. It automatically manages virtual environments and dependency resolution, making it much faster than traditional tools while maintaining compatibility with pip and pyproject.toml standards.
 
 ### Using pip
 
@@ -105,9 +105,8 @@ If everything is set up correctly, you should see:
 
 **Import Error: No module named 'build123d'**
 ```bash
-# Make sure you're in the correct virtual environment
-poetry shell  # or activate your venv
-poetry install  # reinstall dependencies
+# Reinstall dependencies
+uv sync
 ```
 
 **VS Code not showing 3D models**

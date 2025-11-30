@@ -175,7 +175,7 @@ This model demonstrates:
 
 Check that:
 - ✅ You're in the correct directory
-- ✅ Virtual environment is activated (`poetry shell`)
+- ✅ Dependencies are installed (`uv sync`)
 - ✅ `do_export = True` in parameters
 - ✅ No syntax errors in the Python file
 

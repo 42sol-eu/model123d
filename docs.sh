@@ -21,17 +21,17 @@ echo_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Check if Poetry is installed
-if ! command -v poetry &> /dev/null; then
-    echo_error "Poetry is not installed. Please install it first:"
-    echo "  curl -sSL https://install.python-poetry.org | python3 -"
+# Check if uv is installed
+if ! command -v uv &> /dev/null; then
+    echo_error "uv is not installed. Please install it first:"
+    echo "  curl -LsSf https://astral.sh/uv/install.sh | sh"
     exit 1
 fi
 
 # Function to install dependencies
 install_deps() {
     echo_info "Installing documentation dependencies..."
-    poetry install --only=docs
+    uv sync --extra docs
     echo_info "Dependencies installed!"
 }
 
@@ -40,13 +40,13 @@ serve() {
     echo_info "Starting MkDocs development server..."
     echo_info "Open http://127.0.0.1:8000 in your browser"
     echo_info "Press Ctrl+C to stop the server"
-    poetry run mkdocs serve
+    uv run mkdocs serve
 }
 
 # Function to build documentation
 build() {
     echo_info "Building documentation..."
-    poetry run mkdocs build --strict
+    uv run mkdocs build --strict
     echo_info "Documentation built in ./site/"
 }
 
@@ -56,7 +56,7 @@ deploy() {
     read -r response
     if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
         echo_info "Deploying to GitHub Pages..."
-        poetry run mkdocs gh-deploy --strict
+        uv run mkdocs gh-deploy --strict
         echo_info "Deployed!"
     else
         echo_info "Deployment cancelled."
@@ -143,7 +143,7 @@ EOF
 # Function to check for broken links
 check_links() {
     echo_info "Building documentation and checking for issues..."
-    poetry run mkdocs build --strict
+    uv run mkdocs build --strict
     echo_info "Build successful - no broken links found!"
 }
 
